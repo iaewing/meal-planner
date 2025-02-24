@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth'])->group(function () {
     // Home route
     Route::get('/', [HomeController::class, 'index'])->name('home');
-    
+
     // Recipe routes
     Route::get('recipes/import', [RecipeController::class, 'importForm'])
         ->name('recipes.import');
@@ -28,7 +28,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('recipes/import/image', [RecipeController::class, 'importImage'])
         ->name('recipes.import.image');
     Route::resource('recipes', RecipeController::class);  // Move this AFTER the specific routes
-    
+
     // Meal plan routes
     Route::resource('meal-plans', MealPlanController::class);
     Route::get('grocery-list/{mealPlan}', [MealPlanController::class, 'groceryList'])

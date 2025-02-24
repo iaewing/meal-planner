@@ -1,8 +1,10 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import {router} from "@inertiajs/react";
+import {router, usePage} from "@inertiajs/react";
+import dropdown from "@/Components/Dropdown.jsx";
 
 const CreateRecipe = () => {
+    const { ingredientsData } = usePage().props;
     const [data, setData] = React.useState({
         name: '',
         description: '',
@@ -12,7 +14,7 @@ const CreateRecipe = () => {
         prep_time: '',
         cook_time: '',
         total_time: '',
-        ingredients: [{ name: '', quantity: '', unit: '' }],
+        ingredients: [{ name: '', quantity: '', unit: '', ingredient_id: '' }],
         steps: [''],
         nutrition: {
             calories: '',
@@ -72,11 +74,11 @@ const CreateRecipe = () => {
         }));
     };
 
-    const updateIngredient = (index, field, value) => {
+    const updateIngredient = (index, field, value, ingredient_id) => {
         setData(prev => ({
             ...prev,
             ingredients: prev.ingredients.map((ingredient, i) =>
-                i === index ? { ...ingredient, [field]: value } : ingredient
+                i === index ? { ...ingredient, [field]: value, ingredient_id } : ingredient
             )
         }));
     };
@@ -189,30 +191,37 @@ const CreateRecipe = () => {
                             </div>
                             {data.ingredients.map((ingredient, index) => (
                                 <div key={index} className="grid grid-cols-12 gap-2">
-                                    <input
+                                    <select
                                         className="col-span-5 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="Ingredient name"
                                         value={ingredient.name}
-                                        onChange={(e) => updateIngredient(index, 'name', e.target.value)}
-                                    />
+                                        onChange={(e) => updateIngredient(index, 'name', e.target.value, ingredient.ingredient_id)}
+                                    >
+                                        <option value="">Select ingredient</option>
+                                        {ingredientsData.map((ing) => (
+                                            <option key={ing.name} value={ing.name}>
+                                                {ing.name}
+                                            </option>
+                                        ))}
+                                    </select>
                                     <input
                                         className="col-span-3 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         placeholder="Quantity"
                                         value={ingredient.quantity}
-                                        onChange={(e) => updateIngredient(index, 'quantity', e.target.value)}
+                                        onChange={(e) => updateIngredient(index, 'quantity', e.target.value, ingredient.ingredient_id)}
                                     />
                                     <input
                                         className="col-span-3 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         placeholder="Unit"
                                         value={ingredient.unit}
-                                        onChange={(e) => updateIngredient(index, 'unit', e.target.value)}
+                                        onChange={(e) => updateIngredient(index, 'unit', e.target.value, ingredient.ingredient_id)}
+                                        readOnly={ingredient.name !== ''}
                                     />
                                     <button
                                         type="button"
                                         onClick={() => removeIngredient(index)}
                                         className="col-span-1 flex items-center justify-center hover:bg-gray-100 rounded-lg"
                                     >
-                                        <X className="h-4 w-4" />
+                                        <X className="h-4 w-4"/>
                                     </button>
                                 </div>
                             ))}
@@ -242,7 +251,7 @@ const CreateRecipe = () => {
                                         onClick={() => removeStep(index)}
                                         className="flex items-center justify-center p-2 hover:bg-gray-100 rounded-lg"
                                     >
-                                        <X className="h-4 w-4" />
+                                        <X className="h-4 w-4"/>
                                     </button>
                                 </div>
                             ))}

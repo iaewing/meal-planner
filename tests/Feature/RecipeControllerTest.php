@@ -37,12 +37,6 @@ describe('creating recipes', function () {
             'unit' => $ingredientPayload['unit'],
         ]);
     });
-
-//    it('may sum floats', function () {
-//        $result = sum(1.5, 2.5);
-//
-//        expect($result)->toBe(4.0);
-//    });
 });
 
 function createRecipePayload(

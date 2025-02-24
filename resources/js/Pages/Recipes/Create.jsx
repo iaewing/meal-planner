@@ -1,11 +1,14 @@
-import React from 'react';
+import {useState} from 'react';
 import { X } from 'lucide-react';
 import {router, usePage} from "@inertiajs/react";
 import dropdown from "@/Components/Dropdown.jsx";
 
 const CreateRecipe = () => {
     const { ingredientsData } = usePage().props;
-    const [data, setData] = React.useState({
+    const [ingredients, setIngredients] = useState([
+        { name: '', quantity: '', unit: '', ingredient_id: '' }
+    ]);
+    const [data, setData] = useState({
         name: '',
         description: '',
         source_url: '',
@@ -14,7 +17,7 @@ const CreateRecipe = () => {
         prep_time: '',
         cook_time: '',
         total_time: '',
-        ingredients: [{ name: '', quantity: '', unit: '', ingredient_id: '' }],
+        ingredients: ingredients,
         steps: [''],
         nutrition: {
             calories: '',
@@ -61,26 +64,28 @@ const CreateRecipe = () => {
     };
 
     const addIngredient = () => {
-        setData(prev => ({
-            ...prev,
-            ingredients: [...prev.ingredients, { name: '', quantity: '', unit: '' }]
-        }));
+        setIngredients([...ingredients, { name: '', quantity: '', unit: '', ingredient_id: ''}]);
     };
 
     const removeIngredient = (index) => {
-        setData(prev => ({
-            ...prev,
-            ingredients: prev.ingredients.filter((_, i) => i !== index)
-        }));
+        const newIngredients = [...ingredients];
+        newIngredients.splice(index, 1);
+        setIngredients(newIngredients);
     };
 
-    const updateIngredient = (index, field, value, ingredient_id) => {
-        setData(prev => ({
-            ...prev,
-            ingredients: prev.ingredients.map((ingredient, i) =>
-                i === index ? { ...ingredient, [field]: value, ingredient_id } : ingredient
-            )
-        }));
+    const updateIngredient = (index, field, value) => {
+        const newIngredients = [...ingredients];
+        newIngredients[index][field] = value;
+
+        // If the name field is being updated, find the matching ingredient and set its unit
+        if (field === 'name') {
+            const selectedIngredient = ingredientsData.find(ing => ing.name === value);
+            if (selectedIngredient) {
+                newIngredients[index].unit = selectedIngredient.unit;
+            }
+        }
+
+        setIngredients(newIngredients);
     };
 
     const addStep = () => {
@@ -189,7 +194,7 @@ const CreateRecipe = () => {
                                     Add Ingredient
                                 </button>
                             </div>
-                            {data.ingredients.map((ingredient, index) => (
+                            {ingredients.map((ingredient, index) => (
                                 <div key={index} className="grid grid-cols-12 gap-2">
                                     <select
                                         className="col-span-5 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

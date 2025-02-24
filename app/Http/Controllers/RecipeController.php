@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateRecipeRequest;
+use App\Models\Ingredient;
 use App\Models\Recipe;
 use App\Services\RecipeImportService;
 use Illuminate\Http\Request;
@@ -24,12 +25,16 @@ class RecipeController extends Controller
 
     public function create()
     {
-        return Inertia::render('Recipes/Create');
+        $ingredients = Ingredient::query()
+            ->get();
+
+        return Inertia::render('Recipes/Create', [
+            'ingredientsData' => $ingredients
+        ]);
     }
 
     public function store(CreateRecipeRequest $request)
     {
-//dd($request->input('ingredients'));
         $recipe = Recipe::create([
             'user_id' => auth()->id(),
             'name' => $request->input('name'),
@@ -52,7 +57,7 @@ class RecipeController extends Controller
             ]);
         }
         // Create steps
-        foreach ($validated['steps'] as $index => $step) {
+        foreach ($request->input('steps') as $index => $step) {
             $recipe->steps()->create([
                 'instruction' => $step,
                 'order' => $index,

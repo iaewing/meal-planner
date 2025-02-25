@@ -4,7 +4,6 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 export default function Show({auth}) {
     const {recipe} = usePage().props
-    console.log(recipe.ingredients)
 
     return (
         <AuthenticatedLayout user={auth.user}>
@@ -13,7 +12,7 @@ export default function Show({auth}) {
                 <div className="bg-white rounded-lg shadow-lg">
                     <div className="p-6 border-b">
                         <div className="text-2xl font-semibold">{recipe.name}</div>
-                        <div>From: <a href={recipe.source_url}>{recipe.source_url}</a></div>
+                        {recipe.source_url && <div>Imported From: <a href={recipe.source_url}>{recipe.source_url}</a></div>}
                     </div>
                     <div className="p-6">
                         <div className="text-lg font-semibold">Ingredients</div>

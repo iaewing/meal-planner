@@ -1,7 +1,6 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import { X } from 'lucide-react';
 import {router, usePage} from "@inertiajs/react";
-import dropdown from "@/Components/Dropdown.jsx";
 
 const CreateRecipe = () => {
     const { ingredientsData } = usePage().props;
@@ -32,23 +31,13 @@ const CreateRecipe = () => {
         }
     });
 
-    // const handleSubmit = (e) => {
-    //     e.preventDefault();
-    //     const formData = new FormData();
-    //
-    //     Object.keys(data).forEach(key => {
-    //         if (key === 'ingredients' || key === 'steps' || key === 'nutrition') {
-    //             formData.append(key, JSON.stringify(data[key]));
-    //         } else if (key === 'image' && data.image) {
-    //             formData.append(key, data.image);
-    //         } else if (data[key] !== null && data[key] !== '') {
-    //             formData.append(key, data[key]);
-    //         }
-    //     });
-    //
-    //     // Handle form submission here
-    //     console.log('Submitting form data:', formData);
-    // };
+    useEffect(() => {
+        setData(prevData => ({
+            ...prevData,
+            ingredients: ingredients
+        }));
+    }, [ingredients]);
+
     const handleSubmit = (e) => {
         e.preventDefault();
 
@@ -68,24 +57,22 @@ const CreateRecipe = () => {
     };
 
     const removeIngredient = (index) => {
-        const newIngredients = [...ingredients];
-        newIngredients.splice(index, 1);
-        setIngredients(newIngredients);
+        setIngredients(prev => prev.filter((_, i) => i !== index));
     };
 
     const updateIngredient = (index, field, value) => {
-        const newIngredients = [...ingredients];
-        newIngredients[index][field] = value;
-
-        // If the name field is being updated, find the matching ingredient and set its unit
-        if (field === 'name') {
-            const selectedIngredient = ingredientsData.find(ing => ing.name === value);
-            if (selectedIngredient) {
-                newIngredients[index].unit = selectedIngredient.unit;
+        setIngredients(prev => {
+            const newIngredients = [...prev];
+            newIngredients[index][field] = value;
+            if (field === 'name') {
+                const selectedIngredient = ingredientsData.find(ing => ing.name === value);
+                if (selectedIngredient) {
+                    newIngredients[index].unit = selectedIngredient.unit;
+                    newIngredients[index].ingredient_id = selectedIngredient.id;
+                }
             }
-        }
-
-        setIngredients(newIngredients);
+            return newIngredients;
+        });
     };
 
     const addStep = () => {

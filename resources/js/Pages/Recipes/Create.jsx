@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import { X } from 'lucide-react';
-import {router, usePage} from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
+import { route } from 'ziggy-js';
 
 const CreateRecipe = () => {
     const { ingredientsData } = usePage().props;
@@ -41,7 +42,7 @@ const CreateRecipe = () => {
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        router.post('/recipes', data, {
+        router.post(route('recipes.store'), data, {
             forceFormData: true,
             onError: (errors) => {
                 // setErrors(errors);

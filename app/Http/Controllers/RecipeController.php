@@ -70,9 +70,20 @@ class RecipeController extends Controller
 
     public function show(Recipe $recipe)
     {
+        //TODO: We need to be able to share recipes between accounts
         $this->authorize('view', $recipe);
 
         $recipe->load(['ingredients', 'steps']);
+
+        $recipe->setRelation('ingredients', $recipe->ingredients->map(function ($ingredient) {
+            return [
+                'id' => $ingredient->id,
+                'name' => $ingredient->name,
+                'quantity' => $ingredient->pivot->quantity,
+                'unit' => $ingredient->pivot->unit,
+                'notes' => $ingredient->pivot->notes,
+            ];
+        }));
 
         return Inertia::render('Recipes/Show', [
             'recipe' => $recipe

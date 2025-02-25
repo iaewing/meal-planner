@@ -21,16 +21,30 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/', [HomeController::class, 'index'])->name('home');
 
     // Recipe routes
-    Route::get('recipes/import', [RecipeController::class, 'importForm'])
-        ->name('recipes.import');
-    Route::post('recipes/import/url', [RecipeController::class, 'importUrl'])
-        ->name('recipes.import.url');
-    Route::post('recipes/import/image', [RecipeController::class, 'importImage'])
-        ->name('recipes.import.image');
-    Route::resource('recipes', RecipeController::class);  // Move this AFTER the specific routes
+    Route::resource('recipes', RecipeController::class)->names([
+        'index' => 'recipes.index',
+        'create' => 'recipes.create',
+        'store' => 'recipes.store',
+        'show' => 'recipes.show',
+        'edit' => 'recipes.edit',
+        'update' => 'recipes.update',
+        'destroy' => 'recipes.destroy',
+        'import-url' => 'recipes.import-url',
+        'import-form' => 'recipes.import-form',
+        'import-image' => 'recipes.import-image',
+    ]);
 
-    // Meal plan routes
-    Route::resource('meal-plans', MealPlanController::class);
+    Route::resource('meal-plans', MealPlanController::class)->names([
+        'index' => 'meal-plans.index',
+        'create' => 'meal-plans.create',
+        'store' => 'meal-plans.store',
+        'show' => 'meal-plans.show',
+        'edit' => 'meal-plans.edit',
+        'update' => 'meal-plans.update',
+        'destroy' => 'meal-plans.destroy',
+        'grocery-list' => 'meal-plans.grocery-list',
+    ]);
+
     Route::get('grocery-list/{mealPlan}', [MealPlanController::class, 'groceryList'])
         ->name('meal-plans.grocery-list');
 });

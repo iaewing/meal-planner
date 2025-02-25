@@ -1,8 +1,9 @@
 <?php
 
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\MealPlanController;
+use App\Http\Controllers\RecipeController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -45,8 +46,12 @@ Route::middleware(['auth'])->group(function () {
         'grocery-list' => 'meal-plans.grocery-list',
     ]);
 
+    Route::resource('ingredients', IngredientController::class)->names([
+        'index' => 'ingredients.index',
+    ]);
+
     Route::get('grocery-list/{mealPlan}', [MealPlanController::class, 'groceryList'])
         ->name('meal-plans.grocery-list');
 });
 
-require __DIR__.'/auth.php'; 
+require __DIR__ . '/auth.php';

@@ -2,8 +2,9 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { format, parseISO } from 'date-fns';
-
+import { route } from 'ziggy-js';
 export default function Home({ auth, recentRecipes, activeMealPlan }) {
+    console.log(route('home'))
     const formatDate = (date) => {
         try {
             return format(parseISO(date), 'EEEE, MMMM d, yyyy');

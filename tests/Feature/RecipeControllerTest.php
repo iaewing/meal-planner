@@ -11,15 +11,24 @@ describe('creating recipes', function () {
         $servingCount = 420;
         $ingredientQuantity = 69;
         $ingredientModel = Ingredient::factory()->create();
+        $secondIngredient = Ingredient::factory()->create();
         $recipeSteps = [
             'Crack the egg',
             'Cook the egg'
         ];
         $ingredientPayload = [
-            'ingredient_id' => $ingredientModel->id,
-            'name' => $ingredientModel->name,
-            'quantity' => $ingredientQuantity,
-            'unit' => $ingredientModel->unit,
+            [
+                'ingredient_id' => $ingredientModel->id,
+                'name' => $ingredientModel->name,
+                'quantity' => $ingredientQuantity,
+                'unit' => $ingredientModel->unit,
+            ],
+            [
+                'ingredient_id' => $secondIngredient->id,
+                'name' => $secondIngredient->name,
+                'quantity' => $ingredientQuantity,
+                'unit' => $secondIngredient->unit,
+            ]
         ];
 
         $payload = createRecipePayload(
@@ -46,8 +55,14 @@ describe('creating recipes', function () {
         $this->assertDatabaseHas('recipe_ingredients', [
             'recipe_id' => $recipe->id,
             'ingredient_id' => $ingredientModel->id,
-            'quantity' => $ingredientPayload['quantity'],
-            'unit' => $ingredientPayload['unit'],
+            'quantity' => $ingredientPayload[0]['quantity'],
+            'unit' => $ingredientPayload[0]['unit'],
+        ]);
+        $this->assertDatabaseHas('recipe_ingredients', [
+            'recipe_id' => $recipe->id,
+            'ingredient_id' => $secondIngredient->id,
+            'quantity' => $ingredientPayload[1]['quantity'],
+            'unit' => $ingredientPayload[1]['unit'],
         ]);
         $this->assertDatabaseHas('recipe_steps', [
             'recipe_id' => $recipe->id,
@@ -88,7 +103,7 @@ function createRecipePayload(
             'prep_time' => null,
             'cook_time' => null,
             'total_time' => null,
-            'ingredients' => [$ingredient],
+            'ingredients' => $ingredient,
             'steps' => $steps,
             'nutrition' => [
                 'calories' => null,

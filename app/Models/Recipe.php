@@ -41,6 +41,11 @@ class Recipe extends Model
         return $this->hasMany(RecipeStep::class)->orderBy('order');
     }
 
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(IngredientUnit::class, 'ingredient_unit_id');
+    }
+
     public function mealPlans(): BelongsToMany
     {
         return $this->belongsToMany(MealPlan::class, 'meal_plan_recipes')

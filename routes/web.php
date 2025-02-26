@@ -48,6 +48,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::resource('ingredients', IngredientController::class)->names([
         'index' => 'ingredients.index',
+        'store' => 'ingredients.store',
     ]);
 
     Route::get('grocery-list/{mealPlan}', [MealPlanController::class, 'groceryList'])

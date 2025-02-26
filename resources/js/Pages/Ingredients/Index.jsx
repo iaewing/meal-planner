@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Head, usePage} from '@inertiajs/react';
+import {Head, router, usePage} from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 export default function Index({auth}) {
@@ -11,6 +11,8 @@ export default function Index({auth}) {
 
     function addIngredient() {
         console.log(newIngredient);
+        router.post(route('ingredients.store'), newIngredient);
+        setNewIngredient({name: '', unit: ''})
     }
 
     return (
@@ -27,6 +29,7 @@ export default function Index({auth}) {
                                     className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                     placeholder="Ingredient name"
                                     required
+                                    value={newIngredient.name}
                                     onChange={(e) => setNewIngredient(prevState => ({
                                         ...prevState,
                                         name: e.target.value
@@ -35,6 +38,7 @@ export default function Index({auth}) {
                                 <input
                                     className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                     placeholder="Unit (grams, pounds, etc.)"
+                                    value={newIngredient.unit}
                                     onChange={(e) => setNewIngredient(prevState => ({
                                         ...prevState,
                                         unit: e.target.value
@@ -43,7 +47,7 @@ export default function Index({auth}) {
                                 <button
                                     type="button"
                                     onClick={addIngredient}
-                                    className="w-full sm:w-auto px-6 py-3 bg-indigo-400 text-white font-medium rounded-lg hover:bg-indigo-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                    className="w-full sm:w-auto px-6 py-3 bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                                 >
                                     Add Ingredient
                                 </button>

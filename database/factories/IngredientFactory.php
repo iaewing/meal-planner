@@ -18,7 +18,6 @@ class IngredientFactory extends Factory
     {
         return [
             'name' => $this->faker->word(),
-            'unit' => $this->faker->word()
         ];
     }
 }

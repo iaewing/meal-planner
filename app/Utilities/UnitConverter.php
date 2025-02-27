@@ -62,7 +62,6 @@ class UnitConverter
                 }
             }
         }
-
         $isFromVolume = isset(self::VOLUME_CONVERSIONS[$fromUnitLower]);
         $isToVolume = isset(self::VOLUME_CONVERSIONS[$toUnitLower]);
 
@@ -122,6 +121,6 @@ class UnitConverter
         }
 
         // Convert from $fromUnit to $toUnit using the custom conversions
-        return $conversions[$fromUnit] / $conversions[$toUnit];
+        return round($conversions[$fromUnit] / $conversions[$toUnit], 3);
     }
 }

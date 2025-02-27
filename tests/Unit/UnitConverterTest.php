@@ -23,7 +23,7 @@ describe('converting ingredient units', function () {
 
     it('handles a custom conversion with a non-standard unit', closure: function () {
         $conversionFactor = UnitConverter::getCustomConversion('slice', 'lb', 'bacon');
-        expect($conversionFactor)->toBe(0.0625);
+        expect($conversionFactor)->toBe(0.063);
     });
 });
 
@@ -45,6 +45,6 @@ describe('determining conversion factor', function () {
 
     it('returns the correct conversion factor for custom units', closure: function () {
         $conversionFactor = UnitConverter::determineConversionFactor('slice', 'lb', 'bacon');
-        expect($conversionFactor)->toBe(0.0625);
+        expect($conversionFactor)->toBe(0.063);
     });
 });

@@ -1,38 +1,152 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {Head, usePage} from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 export default function Show({auth}) {
     const {recipe} = usePage().props
+    
+    const [selectedUnits, setSelectedUnits] = useState(
+        recipe.ingredients.reduce((acc, ingredient) => {
+            acc[ingredient.id] = ingredient.unit;
+            return acc;
+        }, {})
+    );
+    
+    const handleUnitChange = (ingredientId, newUnit) => {
+        setSelectedUnits(prev => ({
+            ...prev,
+            [ingredientId]: newUnit
+        }));
+    };
+    
+    const getConvertedQuantity = (ingredient, selectedUnit) => {
+        if (ingredient.unit === selectedUnit) {
+            return ingredient.quantity;
+        }
+        
+        const originalUnit = ingredient.available_units.find(u => u.unit === ingredient.unit);
+        const targetUnit = ingredient.available_units.find(u => u.unit === selectedUnit);
+        
+        if (!originalUnit || !targetUnit) {
+            return ingredient.quantity;
+        }
+        
+        const defaultUnit = ingredient.available_units.find(u => u.is_default);
+        
+        if (!defaultUnit) {
+            return ingredient.quantity;
+        }
+        
+        const valueInDefaultUnit = ingredient.quantity * (originalUnit.conversion_factor / defaultUnit.conversion_factor);
+        const convertedValue = valueInDefaultUnit * (defaultUnit.conversion_factor / targetUnit.conversion_factor);
+        
+        return parseFloat(convertedValue).toFixed(2);
+    };
 
     return (
         <AuthenticatedLayout user={auth.user}>
-            <Head title="Show Recipe"/>
+            <Head title={recipe.name}/>
             <div className="container mx-auto px-4 py-8">
                 <div className="bg-white rounded-lg shadow-lg">
                     <div className="p-6 border-b">
                         <div className="text-2xl font-semibold">{recipe.name}</div>
-                        {recipe.source_url && <div>Imported From: <a href={recipe.source_url}>{recipe.source_url}</a></div>}
+                        {recipe.description && (
+                            <p className="mt-2 text-gray-600">{recipe.description}</p>
+                        )}
+                        {recipe.source_url && (
+                            <div className="mt-2">
+                                <span className="text-gray-600">Source: </span>
+                                <a href={recipe.source_url} className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+                                    {recipe.source_url}
+                                </a>
+                            </div>
+                        )}
+                        {recipe.servings && (
+                            <div className="mt-2 text-gray-600">
+                                Servings: {recipe.servings}
+                            </div>
+                        )}
                     </div>
-                    <div className="p-6">
-                        <div className="text-lg font-semibold">Ingredients</div>
-                        <ul>
-                            {recipe.ingredients.map((ingredient, index) => (
-                                <li
-                                    key={index}
-                                    className="capitalize">{ingredient.quantity + ' ' + ingredient.unit + ' of ' + ingredient.name}
+                    
+                    {recipe.image_path && (
+                        <div className="p-6 border-b">
+                            <img 
+                                src={`/storage/${recipe.image_path}`}
+                                alt={recipe.name}
+                                className="w-full max-h-96 object-cover rounded-lg"
+                            />
+                        </div>
+                    )}
+                    
+                    <div className="p-6 border-b">
+                        <h2 className="text-xl font-semibold mb-4">Ingredients</h2>
+                        <ul className="space-y-3">
+                            {recipe.ingredients.map((ingredient) => (
+                                <li key={ingredient.id} className="flex items-center">
+                                    <span className="capitalize mr-2">
+                                        {getConvertedQuantity(ingredient, selectedUnits[ingredient.id])} {selectedUnits[ingredient.id]} {ingredient.name}
+                                    </span>
+                                    
+                                    {ingredient.available_units && ingredient.available_units.length > 1 && (
+                                        <select
+                                            value={selectedUnits[ingredient.id]}
+                                            onChange={(e) => handleUnitChange(ingredient.id, e.target.value)}
+                                            className="ml-2 text-sm border border-gray-300 rounded px-2 py-1"
+                                        >
+                                            {ingredient.available_units.map((unit) => (
+                                                <option key={unit.unit} value={unit.unit}>
+                                                    {unit.unit} {unit.is_default ? '(default)' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    
+                                    {ingredient.notes && (
+                                        <span className="ml-2 text-gray-500 italic">({ingredient.notes})</span>
+                                    )}
                                 </li>
                             ))}
                         </ul>
                     </div>
+                    
                     <div className="p-6">
-                        {recipe.steps.map((step, index) => (
-                            <div key={index} className="border-b p-4">
-                                <div className="text-lg font-semibold">Step: {step.order + 1}</div>
-                                <div className="capitalize">{step.instruction}</div>
-                            </div>
-                        ))}
+                        <h2 className="text-xl font-semibold mb-4">Instructions</h2>
+                        <ol className="list-decimal list-inside space-y-4">
+                            {recipe.steps.map((step) => (
+                                <li key={step.id} className="pl-2">
+                                    <span className="ml-2">{step.instruction}</span>
+                                </li>
+                            ))}
+                        </ol>
                     </div>
+                    
+                    {recipe.nutrition && Object.values(recipe.nutrition).some(val => val) && (
+                        <div className="p-6 border-t">
+                            <h2 className="text-xl font-semibold mb-4">Nutrition Information</h2>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {recipe.nutrition.calories && (
+                                    <div>
+                                        <span className="font-medium">Calories:</span> {recipe.nutrition.calories}
+                                    </div>
+                                )}
+                                {recipe.nutrition.protein && (
+                                    <div>
+                                        <span className="font-medium">Protein:</span> {recipe.nutrition.protein}g
+                                    </div>
+                                )}
+                                {recipe.nutrition.carbohydrates && (
+                                    <div>
+                                        <span className="font-medium">Carbs:</span> {recipe.nutrition.carbohydrates}g
+                                    </div>
+                                )}
+                                {recipe.nutrition.fat && (
+                                    <div>
+                                        <span className="font-medium">Fat:</span> {recipe.nutrition.fat}g
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </AuthenticatedLayout>

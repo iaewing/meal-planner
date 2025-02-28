@@ -25,8 +25,7 @@ class RecipeController extends Controller
 
     public function create()
     {
-        $ingredients = Ingredient::query()
-            ->get();
+        $ingredients = Ingredient::query()->with('units')->get();
 
         return Inertia::render('Recipes/Create', [
             'ingredientsData' => $ingredients
@@ -73,15 +72,24 @@ class RecipeController extends Controller
         //TODO: We need to be able to share recipes between accounts
         $this->authorize('view', $recipe);
 
-        $recipe->load(['ingredients', 'steps']);
+        $recipe->load(['ingredients.units', 'steps']);
 
         $recipe->setRelation('ingredients', $recipe->ingredients->map(function ($ingredient) {
+            $pivotData = $ingredient->pivot;
+            
             return [
                 'id' => $ingredient->id,
                 'name' => $ingredient->name,
-                'quantity' => $ingredient->pivot->quantity,
-                'unit' => $ingredient->pivot->unit,
-                'notes' => $ingredient->pivot->notes,
+                'quantity' => $pivotData->quantity,
+                'unit' => $pivotData->unit,
+                'notes' => $pivotData->notes,
+                'available_units' => $ingredient->units->map(function ($unit) {
+                    return [
+                        'unit' => $unit->unit,
+                        'is_default' => $unit->is_default,
+                        'conversion_factor' => $unit->conversion_factor
+                    ];
+                })
             ];
         }));
 

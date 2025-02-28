@@ -21,7 +21,6 @@ Route::middleware(['auth'])->group(function () {
     // Home route
     Route::get('/', [HomeController::class, 'index'])->name('home');
 
-    // Recipe routes
     Route::resource('recipes', RecipeController::class)->names([
         'index' => 'recipes.index',
         'create' => 'recipes.create',
@@ -50,6 +49,8 @@ Route::middleware(['auth'])->group(function () {
         'index' => 'ingredients.index',
         'store' => 'ingredients.store',
     ]);
+    Route::post('/ingredients/{ingredient}/add-unit', [IngredientController::class, 'addUnit'])
+        ->name('ingredients.add-unit');
 
     Route::get('grocery-list/{mealPlan}', [MealPlanController::class, 'groceryList'])
         ->name('meal-plans.grocery-list');

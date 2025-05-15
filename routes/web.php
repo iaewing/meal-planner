@@ -32,6 +32,10 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    // Meal plan randomizer route
+    Route::get('/meal-plans/randomize', [MealPlanController::class, 'randomizeForm'])->name('meal-plans.randomize-form');
+    Route::post('/meal-plans/randomize', [MealPlanController::class, 'randomize'])->name('meal-plans.randomize');
+
     Route::resource('recipes', RecipeController::class)->names([
         'index' => 'recipes.index',
         'create' => 'recipes.create',

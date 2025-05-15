@@ -12,12 +12,20 @@ export default function Index({ auth, mealPlans }) {
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-2xl font-semibold">Meal Plans</h2>
-                        <Link
-                            href={route('meal-plans.create')}
-                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                        >
-                            Create Meal Plan
-                        </Link>
+                        <div className="flex gap-3">
+                            <Link
+                                href={route('meal-plans.randomize-form')}
+                                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                            >
+                                Random Meal Plan
+                            </Link>
+                            <Link
+                                href={route('meal-plans.create')}
+                                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                            >
+                                Create Meal Plan
+                            </Link>
+                        </div>
                     </div>
 
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">

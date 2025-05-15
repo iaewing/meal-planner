@@ -4,13 +4,13 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import RecipeList from "@/Components/RecipeList.jsx";
 
 export default function Index({auth}) {
-    const { recipes } = usePage().props
-    console.log(recipes)
+    const { recipes, filters } = usePage().props;
+    
     return (
         <AuthenticatedLayout user={auth.user}>
             <Head title="All Recipes"/>
 
-            <RecipeList recipes={recipes}/>
+            <RecipeList recipes={recipes} filters={filters} />
         </AuthenticatedLayout>
     );
 }

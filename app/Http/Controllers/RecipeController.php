@@ -13,15 +13,25 @@ use Inertia\Inertia;
 
 class RecipeController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $recipes = Recipe::with(['ingredients', 'steps'])
-            ->where('user_id', auth()->id())
+        $query = Recipe::query()
+            ->where('user_id', auth()->id());
+            
+        if ($request->has('search') && $request->input('search')) {
+            $query->where('name', 'ilike', '%' . $request->input('search') . '%');
+        }
+        
+        $recipes = $query->with(['ingredients', 'steps'])
             ->latest()
-            ->paginate(12);
+            ->paginate(12)
+            ->appends($request->only('search'));
 
         return Inertia::render('Recipes/Index', [
-            'recipes' => $recipes
+            'recipes' => $recipes,
+            'filters' => [
+                'search' => $request->input('search')
+            ]
         ]);
     }
 

@@ -7,6 +7,7 @@ use App\Models\Ingredient;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use thiagoalessio\TesseractOCR\TesseractOCR;
 use Symfony\Component\DomCrawler\Crawler;
 use GuzzleHttp\Client;
@@ -22,12 +23,24 @@ class RecipeImportService
             'timeout' => 30,
             'verify' => false,
             'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36',
-                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language' => 'en-US,en;q=0.5',
+                'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept-Language' => 'en-US,en;q=0.9',
+                'Accept-Encoding' => 'gzip, deflate, br',
                 'Connection' => 'keep-alive',
+                'Cache-Control' => 'max-age=0',
+                'Sec-Ch-Ua' => '"Not_A Brand";v="8", "Chromium";v="120"',
+                'Sec-Ch-Ua-Mobile' => '?0',
+                'Sec-Ch-Ua-Platform' => '"macOS"',
+                'Sec-Fetch-Dest' => 'document',
+                'Sec-Fetch-Mode' => 'navigate',
+                'Sec-Fetch-Site' => 'none',
+                'Sec-Fetch-User' => '?1',
                 'Upgrade-Insecure-Requests' => '1',
-            ]
+            ],
+            'cookies' => true,
+            'allow_redirects' => true,
+            'http_errors' => false, // Don't throw exceptions for 4xx/5xx responses
         ]);
     }
 
@@ -35,7 +48,95 @@ class RecipeImportService
     {
         try {
             Log::debug('Starting recipe import from URL', ['url' => $url]);
-            $response = $this->client->get($url);
+            
+            // For Food Network URLs, try using a recipe API first
+            if (str_contains($url, 'foodnetwork.com')) {
+                try {
+                    return $this->importFromRecipeApi($url, $userId);
+                } catch (\Exception $e) {
+                    Log::warning('Recipe API import failed, falling back to direct scraping', ['error' => $e->getMessage()]);
+                    // Continue with normal import
+                }
+            }
+            
+            $maxRetries = 3;
+            $retryDelay = 2; // seconds
+            $attempt = 0;
+            $response = null;
+            
+            while ($attempt < $maxRetries) {
+                try {
+                    // Add a small delay between attempts
+                    if ($attempt > 0) {
+                        sleep($retryDelay);
+                    }
+                    
+                    // Add special handling for Food Network
+                    if (str_contains($url, 'foodnetwork.com')) {
+                        $headers = [
+                            'Referer' => 'https://www.google.com/',
+                            'Origin' => 'https://www.google.com',
+                        ];
+                        
+                        // Try to use a proxy for Food Network requests
+                        $options = [
+                            'headers' => $headers,
+                        ];
+                        
+                        // Check if we should use a proxy (from environment variable)
+                        $proxy = env('RECIPE_IMPORT_PROXY');
+                        if ($proxy) {
+                            $options['proxy'] = $proxy;
+                            Log::debug('Using proxy for Food Network request', ['proxy' => $proxy]);
+                        }
+                        
+                        // Use a different user agent for each attempt
+                        $userAgents = [
+                            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+                            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+                        ];
+                        
+                        $options['headers']['User-Agent'] = $userAgents[$attempt % count($userAgents)];
+                        
+                        $response = $this->client->get($url, $options);
+                    } else {
+                        $response = $this->client->get($url);
+                    }
+                    
+                    // Check if we got a successful response
+                    if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+                        break;
+                    }
+                    
+                    Log::warning('Received error response', [
+                        'attempt' => $attempt + 1,
+                        'status' => $response->getStatusCode(),
+                        'url' => $url
+                    ]);
+                    
+                    $attempt++;
+                } catch (\Exception $e) {
+                    Log::warning('Request failed', [
+                        'attempt' => $attempt + 1,
+                        'error' => $e->getMessage(),
+                        'url' => $url
+                    ]);
+                    
+                    $attempt++;
+                    if ($attempt >= $maxRetries) {
+                        throw $e;
+                    }
+                }
+            }
+            
+            // If we still don't have a response or it's an error, throw an exception
+            if (!$response || $response->getStatusCode() >= 400) {
+                throw new \Exception('Failed to fetch URL after ' . $maxRetries . ' attempts. Status code: ' . 
+                    ($response ? $response->getStatusCode() : 'unknown'));
+            }
+            
             $html = (string) $response->getBody();
             $crawler = new Crawler($html);
             
@@ -145,6 +246,11 @@ class RecipeImportService
                 
                 foreach ($recipeData['recipeIngredient'] as $ingredientText) {
                     try {
+                        // Skip non-ingredient text
+                        if ($this->shouldSkipIngredient($ingredientText)) {
+                            continue;
+                        }
+                        
                         $parsed = $this->parseIngredientText($ingredientText);
                         
                         // Create ingredient without unit
@@ -177,22 +283,44 @@ class RecipeImportService
             if (isset($recipeData['recipeInstructions']) && is_array($recipeData['recipeInstructions'])) {
                 Log::info('Processing instructions', ['count' => count($recipeData['recipeInstructions'])]);
                 
-                foreach ($recipeData['recipeInstructions'] as $index => $instruction) {
-                    try {
+                // Use database transactions to improve performance
+                DB::beginTransaction();
+                try {
+                    foreach ($recipeData['recipeInstructions'] as $index => $instruction) {
                         $text = is_array($instruction) ? ($instruction['text'] ?? $instruction['description'] ?? '') : $instruction;
                         
                         if (!empty($text)) {
-                            $step = $recipe->steps()->create([
+                            $recipe->steps()->create([
                                 'instruction' => $text,
                                 'order' => $index + 1,
                             ]);
-                            $step->save();
                         }
-                    } catch (\Exception $e) {
-                        Log::warning('Failed to process instruction', [
-                            'instruction' => is_array($instruction) ? json_encode($instruction) : $instruction,
-                            'error' => $e->getMessage()
-                        ]);
+                    }
+                    DB::commit();
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    Log::warning('Failed to process instructions in transaction', [
+                        'error' => $e->getMessage()
+                    ]);
+                    
+                    // Try again one by one if transaction failed
+                    foreach ($recipeData['recipeInstructions'] as $index => $instruction) {
+                        try {
+                            $text = is_array($instruction) ? ($instruction['text'] ?? $instruction['description'] ?? '') : $instruction;
+                            
+                            if (!empty($text)) {
+                                $step = $recipe->steps()->create([
+                                    'instruction' => $text,
+                                    'order' => $index + 1,
+                                ]);
+                                $step->save();
+                            }
+                        } catch (\Exception $e) {
+                            Log::warning('Failed to process instruction', [
+                                'instruction' => is_array($instruction) ? json_encode($instruction) : $instruction,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
                     }
                 }
             } else {
@@ -1047,70 +1175,282 @@ class RecipeImportService
         try {
             return $this->parseJsonLd($crawler, $url, $userId);
         } catch (\Exception $e) {
+            Log::info('JSON-LD parsing failed for Food Network, trying alternate method', ['error' => $e->getMessage()]);
             // Fallback to HTML parsing if JSON-LD fails
         }
 
-        $name = $crawler->filter('.o-AssetTitle__a-HeadlineText')->text();
-        $description = $crawler->filter('.o-AssetDescription__a-Description')->text('');
-
-        $recipe = Recipe::create([
-            'user_id' => $userId,
-            'name' => $name,
-            'description' => $description,
-            'source_url' => $url,
-        ]);
-
-        // Parse ingredients
-        $crawler->filter('.o-Ingredients__a-Ingredient')->each(function (Crawler $node) use ($recipe) {
-            $text = $node->text();
-            $parsed = $this->parseIngredientText($text);
-            
-            // Create ingredient without unit
-            $ingredient = Ingredient::firstOrCreate(
-                ['name' => $parsed['name']]
-            );
-            
-            if (!$ingredient->exists) {
-                $ingredient->save();
-            }
-
-            // Attach ingredient with unit in pivot table
-            $recipe->ingredients()->attach($ingredient->id, [
-                'quantity' => $parsed['quantity'],
-                'unit' => $parsed['unit'],
-                'notes' => $parsed['notes'],
-            ]);
-        });
-
-        // Parse steps
-        $crawler->filter('.o-Method__m-Step')->each(function (Crawler $node, $index) use ($recipe) {
-            $text = trim($node->text());
-            
-            // Clean up step text
-            $text = preg_replace('/Dotdash Meredith Food Studios?\.?$/i', '', $text);
-            $text = preg_replace('/Allrecipes Magazine\.?$/i', '', $text);
-            $text = preg_replace('/(Credit|Photo):\s+[^\.]+\.?$/i', '', $text);
-            $text = preg_replace('/\s*[-–—]\s*[A-Za-z\s]+(?:Magazine|Studios|Media|Publications)\.?$/i', '', $text);
-            $text = trim($text);
-            
-            $step = $recipe->steps()->create([
-                'instruction' => $text,
-                'order' => $index + 1,
-            ]);
-            $step->save();
-        });
-
-        // Get main recipe image
         try {
-            $imageUrl = $crawler->filter('.m-MediaBlock__a-Image img')->attr('src');
-            if ($imageUrl) {
-                $this->downloadAndAttachImage($recipe, $imageUrl);
+            // Try to extract recipe ID from URL
+            $recipeId = null;
+            if (preg_match('/\/recipes\/.*?\/([^\/]+)-(\d+)$/', $url, $matches)) {
+                $recipeId = $matches[2];
+                Log::debug('Extracted recipe ID from URL', ['id' => $recipeId]);
             }
-        } catch (\Exception $e) {
-            // Image is optional, continue if not found
-        }
+            
+            // If we have a recipe ID, try to use the Food Network API
+            if ($recipeId) {
+                try {
+                    return $this->parseFoodNetworkApi($recipeId, $url, $userId);
+                } catch (\Exception $e) {
+                    Log::warning('Failed to use Food Network API', ['error' => $e->getMessage()]);
+                    // Continue with HTML parsing
+                }
+            }
+            
+            $name = $crawler->filter('.o-AssetTitle__a-HeadlineText, .o-Recipe__m-Title, h1')->text();
+            $description = $crawler->filter('.o-AssetDescription__a-Description, .o-Recipe__m-Description, .o-RecipeInfo__m-Description')->text('');
 
-        return $recipe;
+            $recipe = Recipe::create([
+                'user_id' => $userId,
+                'name' => $name,
+                'description' => $description,
+                'source_url' => $url,
+            ]);
+
+            // Parse ingredients
+            $ingredientSelectors = [
+                '.o-Ingredients__a-Ingredient',
+                '.o-Recipe__m-Ingredient',
+                '.o-RecipeInfo__m-Ingredient',
+                '[itemprop="recipeIngredient"]'
+            ];
+            
+            $ingredientsFound = false;
+            foreach ($ingredientSelectors as $selector) {
+                try {
+                    $ingredientItems = $crawler->filter($selector);
+                    if ($ingredientItems->count() > 0) {
+                        $ingredientItems->each(function (Crawler $node) use ($recipe, &$ingredientsFound) {
+                            $text = $node->text();
+                            
+                            // Skip "Deselect All" and similar non-ingredient text
+                            if ($this->shouldSkipIngredient($text)) {
+                                return;
+                            }
+                            
+                            $parsed = $this->parseIngredientText($text);
+                            
+                            // Create ingredient without unit
+                            $ingredient = Ingredient::firstOrCreate(
+                                ['name' => $parsed['name']]
+                            );
+                            
+                            if (!$ingredient->exists) {
+                                $ingredient->save();
+                            }
+
+                            // Attach ingredient with unit in pivot table
+                            $recipe->ingredients()->attach($ingredient->id, [
+                                'quantity' => $parsed['quantity'],
+                                'unit' => $parsed['unit'],
+                                'notes' => $parsed['notes'],
+                            ]);
+                            
+                            $ingredientsFound = true;
+                            Log::debug('Added ingredient from Food Network', [
+                                'ingredient' => $parsed['name'],
+                                'quantity' => $parsed['quantity'],
+                                'unit' => $parsed['unit']
+                            ]);
+                        });
+                        
+                        if ($ingredientsFound) {
+                            Log::info('Successfully added ingredients using selector', ['selector' => $selector, 'count' => $recipe->ingredients()->count()]);
+                            break;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+
+            // Parse steps
+            $stepSelectors = [
+                '.o-Method__m-Step',
+                '.o-Recipe__m-Step',
+                '.o-RecipeInfo__m-Step',
+                '[itemprop="recipeInstructions"] li'
+            ];
+            
+            $stepsFound = false;
+            foreach ($stepSelectors as $selector) {
+                try {
+                    $stepItems = $crawler->filter($selector);
+                    if ($stepItems->count() > 0) {
+                        $stepItems->each(function (Crawler $node, $index) use ($recipe, &$stepsFound) {
+                            $text = trim($node->text());
+                            
+                            // Clean up step text
+                            $text = preg_replace('/Dotdash Meredith Food Studios?\.?$/i', '', $text);
+                            $text = preg_replace('/Food Network Kitchen\.?$/i', '', $text);
+                            $text = preg_replace('/(Credit|Photo):\s+[^\.]+\.?$/i', '', $text);
+                            $text = preg_replace('/\s*[-–—]\s*[A-Za-z\s]+(?:Magazine|Studios|Media|Publications)\.?$/i', '', $text);
+                            $text = trim($text);
+                            
+                            if (!empty($text)) {
+                                $step = $recipe->steps()->create([
+                                    'instruction' => $text,
+                                    'order' => $index + 1,
+                                ]);
+                                $step->save();
+                                $stepsFound = true;
+                            }
+                        });
+                        
+                        if ($stepsFound) {
+                            Log::info('Successfully added steps using selector', ['selector' => $selector, 'count' => $recipe->steps()->count()]);
+                            break;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    continue;
+                }
+            }
+
+            // Get main recipe image
+            try {
+                $imageSelectors = [
+                    '.m-MediaBlock__a-Image img',
+                    '.o-Recipe__m-MediaBlock img',
+                    '.o-RecipeInfo__m-MediaBlock img',
+                    '[itemprop="image"]'
+                ];
+                
+                foreach ($imageSelectors as $selector) {
+                    try {
+                        $imageUrl = $crawler->filter($selector)->attr('src');
+                        if ($imageUrl) {
+                            $this->downloadAndAttachImage($recipe, $imageUrl);
+                            break;
+                        }
+                    } catch (\Exception $e) {
+                        continue;
+                    }
+                }
+            } catch (\Exception $e) {
+                // Image is optional, continue if not found
+                Log::debug('No recipe image found', ['error' => $e->getMessage()]);
+            }
+
+            return $recipe;
+        } catch (\Exception $e) {
+            Log::error('Failed to parse Food Network page', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            throw $e;
+        }
+    }
+    
+    protected function parseFoodNetworkApi(string $recipeId, string $url, int $userId): Recipe
+    {
+        try {
+            // Try to fetch recipe data from Food Network's API
+            $apiUrl = "https://www.foodnetwork.com/services/mobile-app/recipe-detail/v2/" . $recipeId;
+            
+            $response = $this->client->get($apiUrl, [
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'Referer' => 'https://www.foodnetwork.com/',
+                    'X-Requested-With' => 'XMLHttpRequest'
+                ]
+            ]);
+            
+            if ($response->getStatusCode() !== 200) {
+                throw new \Exception('Failed to fetch recipe data from API');
+            }
+            
+            $data = json_decode($response->getBody(), true);
+            
+            if (!isset($data['recipe'])) {
+                throw new \Exception('Invalid API response format');
+            }
+            
+            $recipeData = $data['recipe'];
+            
+            $recipe = Recipe::create([
+                'user_id' => $userId,
+                'name' => $recipeData['title'] ?? 'Unknown Recipe',
+                'description' => $recipeData['description'] ?? null,
+                'source_url' => $url,
+                'servings' => $recipeData['servings'] ?? null,
+            ]);
+            
+            // Import ingredients
+            if (isset($recipeData['ingredients']) && is_array($recipeData['ingredients'])) {
+                foreach ($recipeData['ingredients'] as $group) {
+                    if (isset($group['ingredients']) && is_array($group['ingredients'])) {
+                        foreach ($group['ingredients'] as $ingredientText) {
+                            $parsed = $this->parseIngredientText($ingredientText);
+                            
+                            // Create ingredient without unit
+                            $ingredient = Ingredient::firstOrCreate(
+                                ['name' => $parsed['name']]
+                            );
+                            
+                            if (!$ingredient->exists) {
+                                $ingredient->save();
+                            }
+
+                            // Attach ingredient with unit in pivot table
+                            $recipe->ingredients()->attach($ingredient->id, [
+                                'quantity' => $parsed['quantity'],
+                                'unit' => $parsed['unit'],
+                                'notes' => $parsed['notes'],
+                            ]);
+                        }
+                    }
+                }
+            }
+            
+            // Import steps
+            if (isset($recipeData['instructions']) && is_array($recipeData['instructions'])) {
+                foreach ($recipeData['instructions'] as $index => $instruction) {
+                    $text = $instruction['text'] ?? '';
+                    if (!empty($text)) {
+                        $step = $recipe->steps()->create([
+                            'instruction' => $text,
+                            'order' => $index + 1,
+                        ]);
+                        $step->save();
+                    }
+                }
+            }
+            
+            // Import image
+            if (isset($recipeData['image']['url'])) {
+                $this->downloadAndAttachImage($recipe, $recipeData['image']['url']);
+            }
+            
+            return $recipe;
+        } catch (\Exception $e) {
+            Log::warning('Failed to parse Food Network API', ['error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    // Helper method to determine if an ingredient text should be skipped
+    protected function shouldSkipIngredient(string $text): bool
+    {
+        $text = strtolower(trim($text));
+        
+        // List of common non-ingredient texts to skip
+        $skipTexts = [
+            'deselect all',
+            'select all',
+            'ingredients',
+            'for the',
+            'special equipment',
+            'equipment needed',
+            'kitchen equipment',
+            'tools needed',
+            'utensils needed'
+        ];
+        
+        foreach ($skipTexts as $skipText) {
+            if ($text === $skipText || strpos($text, $skipText) === 0) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     // Add a method to convert fractions to decimals for consistent storage
@@ -1307,5 +1647,106 @@ class RecipeImportService
         
         // Default to 1 if we couldn't parse the quantity
         return 1;
+    }
+
+    protected function importFromRecipeApi(string $url, int $userId): Recipe
+    {
+        // Try using a recipe extraction API (like Spoonacular or similar)
+        $apiKey = env('RECIPE_API_KEY');
+        if (!$apiKey) {
+            throw new \Exception('Recipe API key not configured');
+        }
+        
+        // Use Spoonacular API to extract recipe
+        $apiUrl = "https://api.spoonacular.com/recipes/extract";
+        $response = $this->client->get($apiUrl, [
+            'query' => [
+                'apiKey' => $apiKey,
+                'url' => $url,
+                'forceExtraction' => true
+            ]
+        ]);
+        
+        if ($response->getStatusCode() !== 200) {
+            throw new \Exception('Recipe API returned error: ' . $response->getStatusCode());
+        }
+        
+        $data = json_decode($response->getBody(), true);
+        
+        if (!isset($data['title'])) {
+            throw new \Exception('Invalid API response format');
+        }
+        
+        $recipe = Recipe::create([
+            'user_id' => $userId,
+            'name' => $data['title'],
+            'description' => $data['summary'] ?? null,
+            'source_url' => $url,
+            'servings' => $data['servings'] ?? null,
+            'prep_time' => $data['preparationMinutes'] ?? null,
+            'cook_time' => $data['cookingMinutes'] ?? null,
+            'total_time' => $data['readyInMinutes'] ?? null,
+        ]);
+        
+        // Import ingredients
+        if (isset($data['extendedIngredients']) && is_array($data['extendedIngredients'])) {
+            foreach ($data['extendedIngredients'] as $ingredientData) {
+                $name = $ingredientData['name'] ?? '';
+                $amount = $ingredientData['amount'] ?? 1;
+                $unit = $ingredientData['unit'] ?? '';
+                
+                if (empty($name)) {
+                    continue;
+                }
+                
+                // Create ingredient without unit
+                $ingredient = Ingredient::firstOrCreate(
+                    ['name' => $name]
+                );
+                
+                if (!$ingredient->exists) {
+                    $ingredient->save();
+                }
+
+                // Attach ingredient with unit in pivot table
+                $recipe->ingredients()->attach($ingredient->id, [
+                    'quantity' => $amount,
+                    'unit' => $unit,
+                    'notes' => null,
+                ]);
+                
+                Log::debug('Added ingredient from API', [
+                    'ingredient' => $name,
+                    'quantity' => $amount,
+                    'unit' => $unit
+                ]);
+            }
+        }
+        
+        // Import steps
+        if (isset($data['analyzedInstructions']) && is_array($data['analyzedInstructions'])) {
+            foreach ($data['analyzedInstructions'] as $instructionGroup) {
+                if (isset($instructionGroup['steps']) && is_array($instructionGroup['steps'])) {
+                    foreach ($instructionGroup['steps'] as $step) {
+                        $text = $step['step'] ?? '';
+                        $number = $step['number'] ?? 0;
+                        
+                        if (!empty($text)) {
+                            $recipe->steps()->create([
+                                'instruction' => $text,
+                                'order' => $number,
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Import image
+        if (isset($data['image'])) {
+            $this->downloadAndAttachImage($recipe, $data['image']);
+        }
+        
+        return $recipe;
     }
 }

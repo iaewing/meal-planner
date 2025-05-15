@@ -30,9 +30,10 @@ const RecipeList = ({ recipes }) => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {recipeData.map((recipe) => (
-                        <div
+                        <Link
                             key={recipe.id}
-                            className="border rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
+                            href={`/recipes/${recipe.id}`}
+                            className="block border rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow bg-white"
                         >
                             {/* Image placeholder */}
                             <div className="bg-gray-200 h-48 flex items-center justify-center">
@@ -55,12 +56,9 @@ const RecipeList = ({ recipes }) => {
                                 </div>
 
                                 <div className="flex justify-between items-center mt-4">
-                                    <Link
-                                        href={`/recipes/${recipe.id}`}
-                                        className="text-blue-600 hover:underline"
-                                    >
+                                    <span className="text-blue-600">
                                         View Details
-                                    </Link>
+                                    </span>
 
                                     {recipe.source_url && (
                                         <a
@@ -68,6 +66,7 @@ const RecipeList = ({ recipes }) => {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-sm text-gray-500 hover:text-blue-600"
+                                            onClick={(e) => e.stopPropagation()}
                                         >
                                             Original Recipe
                                         </a>
@@ -82,7 +81,7 @@ const RecipeList = ({ recipes }) => {
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </Link>
                     ))}
                 </div>
             )}

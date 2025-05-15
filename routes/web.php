@@ -20,6 +20,11 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth'])->group(function () {
     // Home route
     Route::get('/', [HomeController::class, 'index'])->name('home');
+    
+    // Dashboard route (redirects to home)
+    Route::get('/dashboard', function () {
+        return redirect()->route('home');
+    })->name('dashboard');
 
     Route::resource('recipes', RecipeController::class)->names([
         'index' => 'recipes.index',

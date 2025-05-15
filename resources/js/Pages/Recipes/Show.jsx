@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import {Head, usePage} from '@inertiajs/react';
+import {Head, usePage, Link} from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 export default function Show({auth}) {
@@ -49,7 +49,15 @@ export default function Show({auth}) {
             <div className="container mx-auto px-4 py-8">
                 <div className="bg-white rounded-lg shadow-lg">
                     <div className="p-6 border-b">
-                        <div className="text-2xl font-semibold">{recipe.name}</div>
+                        <div className="flex justify-between items-center">
+                            <div className="text-2xl font-semibold">{recipe.name}</div>
+                            <Link
+                                href={route('recipes.edit', recipe.id)}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                            >
+                                Edit Recipe
+                            </Link>
+                        </div>
                         {recipe.description && (
                             <p className="mt-2 text-gray-600">{recipe.description}</p>
                         )}

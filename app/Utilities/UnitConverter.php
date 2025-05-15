@@ -46,7 +46,7 @@ class UnitConverter
         ],
     ];
 
-    public static function determineConversionFactor(string $fromUnit, string $toUnit, string $ingredientName = null): float
+    public static function determineConversionFactor(string $fromUnit, string $toUnit, ?string $ingredientName = null): float
     {
         $fromUnitLower = strtolower($fromUnit);
         $toUnitLower = strtolower($toUnit);

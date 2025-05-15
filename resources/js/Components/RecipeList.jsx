@@ -7,7 +7,23 @@ const RecipeList = ({ recipes }) => {
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <h1 className="text-3xl font-bold mb-6">My Recipes</h1>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold">My Recipes</h1>
+                <div className="flex space-x-3">
+                    <Link
+                        href={route('recipes.import-form')}
+                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                    >
+                        Import Recipe
+                    </Link>
+                    <Link
+                        href={route('recipes.create')}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                    >
+                        Create Recipe
+                    </Link>
+                </div>
+            </div>
 
             {recipeData.length === 0 ? (
                 <p className="text-gray-600">No recipes found.</p>

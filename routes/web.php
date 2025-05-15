@@ -35,20 +35,14 @@ Route::middleware(['auth'])->group(function () {
     // Meal plan randomizer route
     Route::get('/meal-plans/randomize', [MealPlanController::class, 'randomizeForm'])->name('meal-plans.randomize-form');
     Route::post('/meal-plans/randomize', [MealPlanController::class, 'randomize'])->name('meal-plans.randomize');
+    
+    // Recipe import routes - these must come BEFORE the resource routes
+    Route::get('/recipes/import', [RecipeController::class, 'importForm'])->name('recipes.import-form');
+    Route::post('/recipes/import/url', [RecipeController::class, 'importUrl'])->name('recipes.import-url');
+    Route::post('/recipes/import/image', [RecipeController::class, 'importImage'])->name('recipes.import-image');
 
-    Route::resource('recipes', RecipeController::class)->names([
-        'index' => 'recipes.index',
-        'create' => 'recipes.create',
-        'store' => 'recipes.store',
-        'show' => 'recipes.show',
-        'edit' => 'recipes.edit',
-        'update' => 'recipes.update',
-        'destroy' => 'recipes.destroy',
-        'import-url' => 'recipes.import-url',
-        'import-form' => 'recipes.import-form',
-        'import-image' => 'recipes.import-image',
-    ]);
-
+    Route::resource('recipes', RecipeController::class);
+    
     Route::resource('meal-plans', MealPlanController::class)->names([
         'index' => 'meal-plans.index',
         'create' => 'meal-plans.create',

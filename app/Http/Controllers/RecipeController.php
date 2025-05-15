@@ -8,6 +8,7 @@ use App\Models\Recipe;
 use App\Services\RecipeImportService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Log;
 
 class RecipeController extends Controller
 {
@@ -178,20 +179,32 @@ class RecipeController extends Controller
 
     public function importUrl(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'url' => 'required|url'
         ]);
 
         try {
-            $recipe = app(RecipeImportService::class)->importFromUrl(
-                $validated['url'],
-                auth()->id()
-            );
-
-            return redirect()->route('recipes.edit', $recipe)
-                ->with('success', 'Recipe imported successfully. Please review and adjust as needed.');
+            $recipeImportService = new RecipeImportService();
+            $recipe = $recipeImportService->importFromUrl($request->input('url'), auth()->id());
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Recipe imported successfully',
+                'recipe' => [
+                    'id' => $recipe->id,
+                    'name' => $recipe->name,
+                    'ingredients_count' => $recipe->ingredients->count(),
+                    'steps_count' => $recipe->steps->count(),
+                    'url' => route('recipes.show', $recipe->id)
+                ]
+            ]);
         } catch (\Exception $e) {
-            return back()->withErrors(['url' => 'Unable to import recipe from this URL.']);
+            Log::error('Recipe import failed: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to import recipe: ' . $e->getMessage()
+            ], 422);
         }
     }
 

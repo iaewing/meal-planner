@@ -717,7 +717,7 @@ class RecipeImportService
             $extension = pathinfo(parse_url($imageUrl, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'jpg';
             $path = "recipe-images/{$recipe->id}-" . uniqid() . ".{$extension}";
             
-            Storage::disk('public')->put($path, $response->body());
+            Storage::disk('s3')->put($path, $response->body());
             $recipe->update(['image_path' => $path]);
         } catch (\Exception $e) {
             // Log error but don't fail the import

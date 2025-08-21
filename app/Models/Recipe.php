@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -30,7 +31,7 @@ class Recipe extends Model
     public function getImageUrlAttribute(): ?string
     {
         if ($this->image_path) {
-            return Storage::url($this->image_path);
+            return Storage::temporaryUrl($this->image_path, Carbon::now()->addMinutes(90));
         }
 
         return null;

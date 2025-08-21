@@ -76,10 +76,10 @@ export default function Show({auth}) {
                         )}
                     </div>
                     
-                    {recipe.image_path && (
+                    {recipe.image_url && (
                         <div className="p-6 border-b">
                             <img 
-                                src={`/storage/${recipe.image_path}`}
+                                src={recipe.image_url}
                                 alt={recipe.name}
                                 className="w-full max-h-96 object-cover rounded-lg"
                             />

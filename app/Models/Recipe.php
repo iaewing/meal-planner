@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -23,6 +24,17 @@ class Recipe extends Model
     protected $casts = [
         'nutrition' => 'array',
     ];
+
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if ($this->image_path) {
+            return Storage::url($this->image_path);
+        }
+
+        return null;
+    }
 
     public function user(): BelongsTo
     {

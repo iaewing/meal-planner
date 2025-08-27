@@ -17,6 +17,10 @@ pest()->extend(Tests\TestCase::class)
     ->use(LazilyRefreshDatabase::class)
     ->in('Feature');
 
+pest()->extend(Tests\TestCase::class)
+    ->use(LazilyRefreshDatabase::class)
+    ->in('Unit');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

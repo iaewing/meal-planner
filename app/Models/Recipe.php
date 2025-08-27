@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Services\NutritionCalculationService;
 use App\Services\RecipeScalingService;
 use Illuminate\Database\Eloquent\Model;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 
 class Recipe extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'user_id',
         'name',

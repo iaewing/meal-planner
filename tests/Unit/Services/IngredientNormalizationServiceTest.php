@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Services;
+namespace Tests\Unit\Services;
 
 use App\Services\IngredientNormalizationService;
 

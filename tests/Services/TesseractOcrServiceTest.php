@@ -3,6 +3,7 @@
 namespace Tests\Services;
 
 use Exception;
+use Illuminate\Support\Facades\Log;
 use Tests\Fakes\TesseractOcrServiceFake;
 use Tests\Stubs\ConcreteTesseractOcrException;
 use thiagoalessio\TesseractOCR\TesseractOCR;
@@ -11,7 +12,6 @@ it('returns text when OCR succeeds', function () {
     $mockOCR = $this->mock(TesseractOCR::class);
     $mockOCR->shouldReceive('run')->once()->andReturn('hello world');
 
-    // You’d probably inject via a factory in real code
     $service = new TesseractOcrServiceFake($mockOCR);
 
     expect($service->run('fake.jpg'))->toBe('hello world');

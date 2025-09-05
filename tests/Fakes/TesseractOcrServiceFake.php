@@ -3,6 +3,8 @@
 namespace Tests\Fakes;
 
 use App\Services\TesseractOcrService;
+use Exception;
+use Illuminate\Support\Facades\Log;
 
 class TesseractOcrServiceFake extends TesseractOcrService
 {
@@ -15,7 +17,11 @@ class TesseractOcrServiceFake extends TesseractOcrService
 
     public function run(string $imagePath): ?string
     {
-        // delegate directly to the injected mock
-        return $this->ocr->run();
+        try {
+            return $this->ocr->run();
+        } catch(Exception $exception) {
+            Log::error($exception->getMessage());
+            return null;
+        }
     }
 }

@@ -13,8 +13,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\DomCrawler\Crawler;
-use thiagoalessio\TesseractOCR\TesseractOCR;
-use thiagoalessio\TesseractOCR\TesseractOcrException;
 
 class RecipeImportService
 {
@@ -399,10 +397,14 @@ class RecipeImportService
     {
         $text = $this->ocrService->run($imagePath);
 
+        if (!$text) {
+            return null;
+        }
+
         // Split text into sections
         $sections = $this->parseOcrText($text);
 
-        $recipe = Recipe::create([
+        $recipe = Recipe::query()->create([
             'user_id' => $userId,
             'name' => $sections['title'],
             'description' => $sections['description'] ?? null,
@@ -414,13 +416,9 @@ class RecipeImportService
             $parsed = $this->parseIngredientText($ingredientText);
 
             // Create ingredient without unit
-            $ingredient = Ingredient::firstOrCreate(
+            $ingredient = Ingredient::query()->firstOrCreate(
                 ['name' => $parsed['name']]
             );
-
-            if (!$ingredient->exists) {
-                $ingredient->save();
-            }
 
             // Attach ingredient with unit in pivot table
             $recipe->ingredients()->attach($ingredient->id, [
@@ -442,11 +440,11 @@ class RecipeImportService
         return $recipe;
     }
 
-    protected function parseOcrText(string $text): array
+    public function parseOcrText(string $text): array
     {
         $lines = explode("\n", $text);
         $sections = [
-            'title' => $lines[0],
+            'title' => trim($lines[0]),
             'ingredients' => [],
             'instructions' => [],
         ];

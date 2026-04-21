@@ -268,6 +268,10 @@ class RecipeController extends Controller
                 auth()->id()
             );
 
+            if (!$recipe) {
+                return back()->withErrors(['image' => 'Could not extract recipe text from this image.']);
+            }
+
             return redirect()->route('recipes.edit', $recipe)
                 ->with('success', 'Recipe imported successfully. Please review and adjust as needed.');
         } catch (\Exception $e) {

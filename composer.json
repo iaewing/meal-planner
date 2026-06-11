@@ -15,6 +15,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.29",
+        "nativephp/mobile": "^3.2",
         "symfony/dom-crawler": "^7.2",
         "thiagoalessio/tesseract_ocr": "^2.13",
         "tightenco/ziggy": "^2.5"

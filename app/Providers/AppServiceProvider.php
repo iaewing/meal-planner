@@ -15,6 +15,13 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(OcrService::class, TesseractOcrService::class);
+
+        if (filter_var(env('NATIVEPHP_USE_LOCAL_STORAGE', false), FILTER_VALIDATE_BOOLEAN)) {
+            config([
+                'database.default' => 'sqlite',
+                'session.driver' => 'file',
+            ]);
+        }
     }
 
     /**

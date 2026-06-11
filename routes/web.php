@@ -3,6 +3,7 @@
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\MealPlanController;
+use App\Http\Controllers\MobilePocController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
 use Illuminate\Support\Facades\Route;
@@ -21,7 +22,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth'])->group(function () {
     // Home route
     Route::get('/', [HomeController::class, 'index'])->name('home');
-    
+    Route::get('/mobile', MobilePocController::class)->name('mobile.poc');
+
     // Dashboard route (redirects to home)
     Route::get('/dashboard', function () {
         return redirect()->route('home');
@@ -35,14 +37,14 @@ Route::middleware(['auth'])->group(function () {
     // Meal plan randomizer route
     Route::get('/meal-plans/randomize', [MealPlanController::class, 'randomizeForm'])->name('meal-plans.randomize-form');
     Route::post('/meal-plans/randomize', [MealPlanController::class, 'randomize'])->name('meal-plans.randomize');
-    
+
     // Recipe import routes - these must come BEFORE the resource routes
     Route::get('/recipes/import', [RecipeController::class, 'importForm'])->name('recipes.import-form');
     Route::post('/recipes/import/url', [RecipeController::class, 'importUrl'])->name('recipes.import-url');
     Route::post('/recipes/import/image', [RecipeController::class, 'importImage'])->name('recipes.import-image');
 
     Route::resource('recipes', RecipeController::class);
-    
+
     Route::resource('meal-plans', MealPlanController::class)->names([
         'index' => 'meal-plans.index',
         'create' => 'meal-plans.create',
@@ -65,4 +67,4 @@ Route::middleware(['auth'])->group(function () {
         ->name('meal-plans.grocery-list');
 });
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

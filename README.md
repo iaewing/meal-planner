@@ -8,8 +8,10 @@
 - [x] Have a text input that allows a user to search for a specific recipe
 - [x] Figure out why images on prod aren't being uploaded
 - [ ] Find a way to normalize ingredients
-- [ ] Add a shopping list
-- [ ] Allow a user to choose from different units of measurements for an ingredient
+- [x] Add a shopping list
+- [x] Allow a user to choose from different units of measurements for an ingredient
 - [ ] Allow users to take an image of a double sided recipe and create a recipe from it
 - [ ] Add recipe rating system
 - [ ] Import from Instagram?
+- [x] Add a hosted-backend mobile POC entry point
+- [ ] Find a way to build using NativePHP Mobile

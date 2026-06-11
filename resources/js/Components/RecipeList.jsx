@@ -6,6 +6,7 @@ const RecipeList = ({ recipes, filters = {} }) => {
     // Destructure the data from the pagination object
     const recipeData = recipes.data;
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
+    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_path ? `/storage/${recipe.image_path}` : null);
 
     // Debounce search to avoid too many requests
     const debouncedSearch = debounce((value) => {
@@ -30,21 +31,21 @@ const RecipeList = ({ recipes, filters = {} }) => {
     }, []);
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold">My Recipes</h1>
-                <div className="flex space-x-3">
+        <div className="container mx-auto px-4 py-6 sm:py-8">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <h1 className="text-2xl font-bold sm:text-3xl">My Recipes</h1>
+                <div className="grid grid-cols-2 gap-3 sm:flex sm:space-x-3">
                     <Link
                         href={route('recipes.import-form')}
-                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                        className="rounded bg-green-500 px-4 py-2 text-center text-sm font-medium text-white hover:bg-green-600"
                     >
-                        Import Recipe
+                        Import
                     </Link>
                     <Link
                         href={route('recipes.create')}
-                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                        className="rounded bg-blue-500 px-4 py-2 text-center text-sm font-medium text-white hover:bg-blue-600"
                     >
-                        Create Recipe
+                        Create
                     </Link>
                 </div>
             </div>
@@ -65,7 +66,7 @@ const RecipeList = ({ recipes, filters = {} }) => {
                                 setSearchTerm('');
                                 router.get(route('recipes.index'));
                             }}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                         >
                             ✕
                         </button>
@@ -91,7 +92,7 @@ const RecipeList = ({ recipes, filters = {} }) => {
                     )}
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {recipeData.map((recipe) => (
                         <Link
                             key={recipe.id}
@@ -100,9 +101,9 @@ const RecipeList = ({ recipes, filters = {} }) => {
                         >
                             {/* Image placeholder */}
                             <div className="bg-gray-200 h-48 flex items-center justify-center">
-                                {recipe.image_path ? (
+                                {recipeImageSrc(recipe) ? (
                                     <img
-                                        src={recipe.image_path}
+                                        src={recipeImageSrc(recipe)}
                                         alt={recipe.name}
                                         className="w-full h-full object-cover"
                                     />

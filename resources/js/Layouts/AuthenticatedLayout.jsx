@@ -3,6 +3,7 @@ import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import {Link, usePage} from '@inertiajs/react';
+import {BookOpen, CalendarDays, Home, ListChecks} from 'lucide-react';
 import {useState} from 'react';
 
 export default function AuthenticatedLayout({header, children}) {
@@ -12,8 +13,24 @@ export default function AuthenticatedLayout({header, children}) {
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
 
+    const activePath = (path) => (
+        path === '/' ? url === '/' : url === path || url.startsWith(`${path}/`)
+    );
+
+    const bottomNavItems = [
+        {href: '/', label: 'Home', icon: Home, active: activePath('/')},
+        {
+            href: '/meal-plans',
+            label: 'Plans',
+            icon: CalendarDays,
+            active: activePath('/meal-plans') || url.startsWith('/grocery-list/'),
+        },
+        {href: '/recipes', label: 'Recipes', icon: BookOpen, active: activePath('/recipes')},
+        {href: '/ingredients', label: 'Items', icon: ListChecks, active: activePath('/ingredients')},
+    ];
+
     return (
-        <div className="min-h-screen bg-gray-100">
+        <div className="min-h-screen bg-gray-100 pb-20 sm:pb-0">
             <nav className="border-b border-gray-100 bg-white">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 justify-between">
@@ -27,25 +44,25 @@ export default function AuthenticatedLayout({header, children}) {
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                                 <NavLink
                                     href={'/'}
-                                    active={url === '/'}
+                                    active={activePath('/')}
                                 >
                                     Dashboard
                                 </NavLink>
                                 <NavLink
                                     href={'/meal-plans'}
-                                    active={url === '/meal-plans'}
+                                    active={activePath('/meal-plans') || url.startsWith('/grocery-list/')}
                                 >
                                     Meal Plans
                                 </NavLink>
                                 <NavLink
                                     href={'/recipes'}
-                                    active={url === '/recipes'}
+                                    active={activePath('/recipes')}
                                 >
                                     Recipes
                                 </NavLink>
                                 <NavLink
                                     href={'/ingredients'}
-                                    active={url === '/ingredients'}
+                                    active={activePath('/ingredients')}
                                 >
                                     Ingredients
                                 </NavLink>
@@ -149,9 +166,27 @@ export default function AuthenticatedLayout({header, children}) {
                     <div className="space-y-1 pb-3 pt-2">
                         <ResponsiveNavLink
                             href={'/'}
-                            active={'/'}
+                            active={activePath('/')}
                         >
                             Dashboard
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={'/meal-plans'}
+                            active={activePath('/meal-plans') || url.startsWith('/grocery-list/')}
+                        >
+                            Meal Plans
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={'/recipes'}
+                            active={activePath('/recipes')}
+                        >
+                            Recipes
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={'/ingredients'}
+                            active={activePath('/ingredients')}
+                        >
+                            Ingredients
                         </ResponsiveNavLink>
                     </div>
 
@@ -190,6 +225,27 @@ export default function AuthenticatedLayout({header, children}) {
             )}
 
             <main>{children}</main>
+
+            <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white shadow-[0_-6px_20px_rgba(15,23,42,0.08)] sm:hidden">
+                <div className="grid h-16 grid-cols-4">
+                    {bottomNavItems.map((item) => {
+                        const Icon = item.icon;
+
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`flex min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium ${
+                                    item.active ? 'text-indigo-700' : 'text-gray-500'
+                                }`}
+                            >
+                                <Icon className="h-5 w-5" strokeWidth={item.active ? 2.5 : 2} />
+                                <span className="max-w-full truncate">{item.label}</span>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </nav>
         </div>
     );
 }

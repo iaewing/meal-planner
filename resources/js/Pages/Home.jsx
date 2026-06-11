@@ -2,9 +2,10 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { format, parseISO } from 'date-fns';
-import { route } from 'ziggy-js';
+
 export default function Home({ auth, recentRecipes, activeMealPlan }) {
-    console.log(route('home'))
+    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_path ? `/storage/${recipe.image_path}` : null);
+
     const formatDate = (date) => {
         try {
             return format(parseISO(date), 'EEEE, MMMM d, yyyy');
@@ -16,12 +17,12 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
     return (
         <AuthenticatedLayout user={auth.user}>
             <Head title="Dashboard" />
-            <div className="py-12">
-                <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div className="py-6 sm:py-12">
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     {/* Welcome Section */}
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                         <div className="p-6">
-                            <h1 className="text-3xl font-bold text-gray-900">
+                            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
                                 Welcome to Your Meal Planner
                             </h1>
                             <p className="mt-2 text-gray-600">
@@ -30,15 +31,15 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                         </div>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid gap-6 md:grid-cols-2">
                         {/* Quick Actions */}
                         <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                             <div className="p-6">
                                 <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                                     <Link
                                         href="/recipes/create"
-                                        className="block p-4 border rounded-lg hover:bg-gray-50 text-center"
+                                        className="block rounded-lg border p-3 text-center hover:bg-gray-50 sm:p-4"
                                     >
                                         <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -47,7 +48,7 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                     </Link>
                                     <Link
                                         href="/meal-plans/create"
-                                        className="block p-4 border rounded-lg hover:bg-gray-50 text-center"
+                                        className="block rounded-lg border p-3 text-center hover:bg-gray-50 sm:p-4"
                                     >
                                         <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -56,7 +57,7 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                     </Link>
                                     <Link
                                         href="/recipes/import"
-                                        className="block p-4 border rounded-lg hover:bg-gray-50 text-center"
+                                        className="block rounded-lg border p-3 text-center hover:bg-gray-50 sm:p-4"
                                     >
                                         <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -65,7 +66,7 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                     </Link>
                                     <Link
                                         href="/recipes"
-                                        className="block p-4 border rounded-lg hover:bg-gray-50 text-center"
+                                        className="block rounded-lg border p-3 text-center hover:bg-gray-50 sm:p-4"
                                     >
                                         <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -98,16 +99,16 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                                         href={`/recipes/${recipe.id}`}
                                                         className="block p-4 border rounded-lg hover:bg-gray-50"
                                                     >
-                                                        <div className="flex justify-between items-center">
+                                                        <div className="flex items-center justify-between gap-3">
                                                             <div>
                                                                 <p className="text-sm font-medium text-gray-500 capitalize">
                                                                     {recipe.pivot.meal_type}
                                                                 </p>
                                                                 <p className="font-medium">{recipe.name}</p>
                                                             </div>
-                                                            {recipe.image_path && (
+                                                            {recipeImageSrc(recipe) && (
                                                                 <img
-                                                                    src={`/storage/${recipe.image_path}`}
+                                                                    src={recipeImageSrc(recipe)}
                                                                     alt={recipe.name}
                                                                     className="w-16 h-16 object-cover rounded"
                                                                 />
@@ -138,7 +139,7 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                     {/* Recent Recipes */}
                     <div className="mt-6 bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-6">
-                            <div className="flex justify-between items-center mb-4">
+                            <div className="mb-4 flex items-center justify-between gap-3">
                                 <h2 className="text-xl font-semibold">Recent Recipes</h2>
                                 <Link
                                     href="/recipes"
@@ -148,7 +149,7 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                 </Link>
                             </div>
                             {recentRecipes.length > 0 ? (
-                                <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
                                     {recentRecipes.map(recipe => (
                                         <Link
                                             key={recipe.id}
@@ -156,9 +157,9 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                             className="block group"
                                         >
                                             <div className="aspect-w-16 aspect-h-9 mb-2">
-                                                {recipe.image_path ? (
+                                                {recipeImageSrc(recipe) ? (
                                                     <img
-                                                        src={`/storage/${recipe.image_path}`}
+                                                        src={recipeImageSrc(recipe)}
                                                         alt={recipe.name}
                                                         className="w-full h-full object-cover rounded-lg"
                                                     />

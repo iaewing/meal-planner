@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { RotateCcw } from 'lucide-react';
 
 export default function GroceryList({ auth, mealPlan, ingredients }) {
     const [checkedItems, setCheckedItems] = useState({});
@@ -16,11 +17,11 @@ export default function GroceryList({ auth, mealPlan, ingredients }) {
         <AuthenticatedLayout user={auth.user}>
             <Head title={`Grocery List - ${mealPlan.name}`} />
 
-            <div className="py-12">
-                <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div className="py-6 sm:py-12">
+                <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                        <div className="p-6">
-                            <div className="flex justify-between items-center mb-6">
+                        <div className="p-4 sm:p-6">
+                            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <h2 className="text-2xl font-semibold">Grocery List</h2>
                                     <p className="text-gray-600">{mealPlan.name}</p>
@@ -39,7 +40,7 @@ export default function GroceryList({ auth, mealPlan, ingredients }) {
                                         {ingredients.map(ingredient => (
                                             <div
                                                 key={ingredient.id}
-                                                className={`py-3 flex items-center gap-4 ${
+                                                className={`flex items-center gap-4 py-4 ${
                                                     checkedItems[ingredient.id] ? 'opacity-50' : ''
                                                 }`}
                                             >
@@ -47,9 +48,9 @@ export default function GroceryList({ auth, mealPlan, ingredients }) {
                                                     type="checkbox"
                                                     checked={checkedItems[ingredient.id] || false}
                                                     onChange={() => toggleItem(ingredient.id)}
-                                                    className="h-5 w-5 text-blue-600 rounded"
+                                                    className="h-6 w-6 rounded text-blue-600"
                                                 />
-                                                <span className={checkedItems[ingredient.id] ? 'line-through' : ''}>
+                                                <span className={`text-base ${checkedItems[ingredient.id] ? 'line-through' : ''}`}>
                                                     {ingredient.total_quantity} {ingredient.unit} {ingredient.name}
                                                 </span>
                                             </div>
@@ -65,8 +66,9 @@ export default function GroceryList({ auth, mealPlan, ingredients }) {
                             <div className="mt-8">
                                 <button
                                     onClick={() => setCheckedItems({})}
-                                    className="text-gray-600 hover:text-gray-800"
+                                    className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800"
                                 >
+                                    <RotateCcw className="h-4 w-4" />
                                     Clear All Checkmarks
                                 </button>
                             </div>

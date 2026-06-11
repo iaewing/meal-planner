@@ -5,6 +5,7 @@ import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
+import { Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { route } from 'ziggy-js';
 
@@ -69,7 +70,7 @@ export default function MealPlanForm({ recipes, mealPlan = null, className = '' 
                     <InputError message={errors.name} className="mt-2" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
                     <div>
                         <InputLabel htmlFor="start_date" value="Start Date" />
                         <TextInput
@@ -98,20 +99,21 @@ export default function MealPlanForm({ recipes, mealPlan = null, className = '' 
                 </div>
 
                 <div>
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="mb-4 flex items-center justify-between gap-3">
                         <h3 className="text-lg font-medium">Meals</h3>
-                        <SecondaryButton type="button" onClick={addMeal}>
+                        <SecondaryButton type="button" onClick={addMeal} className="gap-2 whitespace-nowrap">
+                            <Plus className="h-4 w-4" />
                             Add Meal
                         </SecondaryButton>
                     </div>
 
                     {data.meals.map((meal, index) => (
-                        <div key={index} className="bg-gray-50 p-4 rounded-lg mb-4">
-                            <div className="grid grid-cols-3 gap-4">
+                        <div key={index} className="mb-4 rounded-lg bg-gray-50 p-4">
+                            <div className="grid gap-4 md:grid-cols-3">
                                 <div>
                                     <InputLabel value="Recipe" />
                                     <select
-                                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                                         value={meal.recipe_id}
                                         onChange={e => updateMeal(index, 'recipe_id', e.target.value)}
                                         required
@@ -141,7 +143,7 @@ export default function MealPlanForm({ recipes, mealPlan = null, className = '' 
                                 <div>
                                     <InputLabel value="Meal Type" />
                                     <select
-                                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
                                         value={meal.meal_type}
                                         onChange={e => updateMeal(index, 'meal_type', e.target.value)}
                                         required
@@ -158,8 +160,9 @@ export default function MealPlanForm({ recipes, mealPlan = null, className = '' 
                             <button
                                 type="button"
                                 onClick={() => removeMeal(index)}
-                                className="text-red-600 hover:text-red-800 mt-2"
+                                className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-800"
                             >
+                                <Trash2 className="h-4 w-4" />
                                 Remove
                             </button>
                         </div>
@@ -167,8 +170,8 @@ export default function MealPlanForm({ recipes, mealPlan = null, className = '' 
                     <InputError message={errors.meals} className="mt-2" />
                 </div>
 
-                <div className="flex justify-end gap-4">
-                    <PrimaryButton type="submit" disabled={processing}>
+                <div className="sticky bottom-20 -mx-4 border-t border-gray-200 bg-white/95 px-4 py-4 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+                    <PrimaryButton type="submit" disabled={processing} className="w-full justify-center sm:w-auto">
                         {mealPlan ? 'Update Meal Plan' : 'Create Meal Plan'}
                     </PrimaryButton>
                 </div>

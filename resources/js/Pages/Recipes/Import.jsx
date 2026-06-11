@@ -115,11 +115,11 @@ export default function Import({ auth, flash }) {
         >
             <Head title="Import Recipe" />
 
-            <div className="py-12">
-                <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                    <div className="grid md:grid-cols-2 gap-6">
+            <div className="py-6 sm:py-12">
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                    <div className="grid gap-6 md:grid-cols-2">
                         {/* URL Import */}
-                        <div className="bg-white overflow-hidden shadow-xl sm:rounded-lg p-6">
+                        <div className="overflow-hidden bg-white p-4 shadow-xl sm:rounded-lg sm:p-6">
                             <h3 className="text-lg font-medium text-gray-900">Import from URL</h3>
                             <p className="mt-1 text-sm text-gray-600">
                                 Enter the URL of a recipe from a supported website.
@@ -150,8 +150,8 @@ export default function Import({ auth, flash }) {
                                     />
                                 </div>
 
-                                <div className="flex items-center justify-end mt-4">
-                                    <PrimaryButton className="ml-4" disabled={loading}>
+                                <div className="mt-4 flex items-center justify-end">
+                                    <PrimaryButton className="w-full justify-center sm:w-auto" disabled={loading}>
                                         {loading ? (
                                             <>
                                                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -169,14 +169,14 @@ export default function Import({ auth, flash }) {
                         </div>
                         
                         {/* Image Import */}
-                        <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+                        <div className="overflow-hidden bg-white p-4 shadow-sm sm:rounded-lg sm:p-6">
                             <h3 className="text-lg font-medium text-gray-900">Import from Image</h3>
                             <p className="mt-1 text-sm text-gray-600">
                                 Upload an image of a recipe to import.
                             </p>
                             <form onSubmit={handleImageSubmit} className="mt-4">
                                 <div
-                                    className={`border-2 border-dashed rounded-lg p-6 text-center ${
+                                    className={`rounded-lg border-2 border-dashed p-6 text-center ${
                                         dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
                                     } ${imageProcessing ? 'opacity-50' : ''}`}
                                     onDragEnter={handleDrag}
@@ -203,8 +203,9 @@ export default function Import({ auth, flash }) {
                                     <InputError message={imageErrors.image} className="mt-2" />
                                 </div>
 
-                                <div className="flex items-center justify-end mt-4">
+                                <div className="mt-4 flex items-center justify-end">
                                     <PrimaryButton
+                                        className="w-full justify-center sm:w-auto"
                                         disabled={imageProcessing || !imageData.image}
                                     >
                                         {imageProcessing ? 'Importing...' : 'Import from Image'}

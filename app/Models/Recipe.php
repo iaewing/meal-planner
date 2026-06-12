@@ -2,14 +2,14 @@
 
 namespace App\Models;
 
+use App\Services\NutritionCalculationService;
+use App\Services\RecipeScalingService;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use App\Services\RecipeScalingService;
-use App\Services\NutritionCalculationService;
 
 class Recipe extends Model
 {
@@ -19,7 +19,7 @@ class Recipe extends Model
         'description',
         'source_url',
         'image_path',
-        'servings'
+        'servings',
     ];
 
     protected $casts = [
@@ -30,6 +30,14 @@ class Recipe extends Model
 
     public function getImageUrlAttribute(): ?string
     {
+        if ($this->relationLoaded('images') && $this->images->isNotEmpty()) {
+            return $this->images->first()->image_url;
+        }
+
+        if (! $this->relationLoaded('images') && $this->images()->exists()) {
+            return $this->images()->first()->image_url;
+        }
+
         if ($this->image_path) {
             return Storage::temporaryUrl($this->image_path, Carbon::now()->addMinutes(90));
         }
@@ -54,6 +62,11 @@ class Recipe extends Model
         return $this->hasMany(RecipeStep::class)->orderBy('order');
     }
 
+    public function images(): HasMany
+    {
+        return $this->hasMany(RecipeImage::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function unit(): BelongsTo
     {
         return $this->belongsTo(IngredientUnit::class, 'ingredient_unit_id');
@@ -68,7 +81,7 @@ class Recipe extends Model
 
     public function scaleServings(int $targetServings)
     {
-        if (!$this->servings) {
+        if (! $this->servings) {
             return $this;
         }
 
@@ -98,6 +111,7 @@ class Recipe extends Model
                 if (is_numeric($value)) {
                     return round($value * $scaleFactor, 1);
                 }
+
                 return $value;
             })->all();
         }
@@ -110,7 +124,7 @@ class Recipe extends Model
     public function getNutritionAttribute($value)
     {
         $nutrition = json_decode($value, true) ?? [];
-        
+
         // Ensure all expected nutrition fields are present
         return array_merge([
             'calories' => null,
@@ -139,7 +153,7 @@ class Recipe extends Model
     protected static function booted()
     {
         static::saved(function ($recipe) {
-            if ($recipe->wasChanged(['servings']) || !$recipe->nutrition) {
+            if ($recipe->wasChanged(['servings']) || ! $recipe->nutrition) {
                 $recipe->updateNutrition();
             }
         });

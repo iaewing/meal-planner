@@ -8,6 +8,7 @@ use App\Models\Ingredient;
 use App\Models\Recipe;
 use App\Services\RecipeImportService;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
@@ -17,12 +18,12 @@ class RecipeController extends Controller
     {
         $query = Recipe::query()
             ->where('user_id', auth()->id());
-            
+
         if ($request->has('search') && $request->input('search')) {
-            $query->where('name', 'ilike', '%' . $request->input('search') . '%');
+            $query->where('name', 'ilike', '%'.$request->input('search').'%');
         }
-        
-        $recipes = $query->with(['ingredients', 'steps'])
+
+        $recipes = $query->with(['ingredients', 'steps', 'images'])
             ->latest()
             ->paginate(12)
             ->appends($request->only('search'));
@@ -30,8 +31,8 @@ class RecipeController extends Controller
         return Inertia::render('Recipes/Index', [
             'recipes' => $recipes,
             'filters' => [
-                'search' => $request->input('search')
-            ]
+                'search' => $request->input('search'),
+            ],
         ]);
     }
 
@@ -40,7 +41,7 @@ class RecipeController extends Controller
         $ingredients = Ingredient::query()->with('units')->get();
 
         return Inertia::render('Recipes/Create', [
-            'ingredientsData' => $ingredients
+            'ingredientsData' => $ingredients,
         ]);
     }
 
@@ -54,10 +55,7 @@ class RecipeController extends Controller
             'servings' => $request->input('servings'),
         ]);
 
-        if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('recipe-images', 'public');
-            $recipe->update(['image_path' => $path]);
-        }
+        $this->attachUploadedImages($recipe, $request);
 
         // Attach ingredients
         foreach ($request->input('ingredients') as $ingredient) {
@@ -81,14 +79,14 @@ class RecipeController extends Controller
 
     public function show(Recipe $recipe)
     {
-        //TODO: We need to be able to share recipes between accounts
+        // TODO: We need to be able to share recipes between accounts
         Gate::authorize('view', $recipe);
 
-        $recipe->load(['ingredients.units', 'steps']);
+        $recipe->load(['ingredients.units', 'steps', 'images']);
 
         $recipe->setRelation('ingredients', $recipe->ingredients->map(function ($ingredient) {
             $pivotData = $ingredient->pivot;
-            
+
             return [
                 'id' => $ingredient->id,
                 'name' => $ingredient->name,
@@ -99,14 +97,14 @@ class RecipeController extends Controller
                     return [
                         'unit' => $unit->unit,
                         'is_default' => $unit->is_default,
-                        'conversion_factor' => $unit->conversion_factor
+                        'conversion_factor' => $unit->conversion_factor,
                     ];
-                })
+                }),
             ];
         }));
 
         return Inertia::render('Recipes/Show', [
-            'recipe' => $recipe
+            'recipe' => $recipe,
         ]);
     }
 
@@ -114,12 +112,12 @@ class RecipeController extends Controller
     {
         Gate::authorize('update', $recipe);
 
-        $recipe->load(['ingredients', 'steps']);
+        $recipe->load(['ingredients', 'steps', 'images']);
         $ingredients = Ingredient::query()->with('units')->get();
 
         return Inertia::render('Recipes/Edit', [
             'recipe' => $recipe,
-            'ingredientsData' => $ingredients
+            'ingredientsData' => $ingredients,
         ]);
     }
 
@@ -132,8 +130,10 @@ class RecipeController extends Controller
             'description' => 'nullable|string',
             'source_url' => 'nullable|url',
             'image' => 'nullable|image|max:2048',
+            'images' => 'nullable|array',
+            'images.*' => 'image|max:2048',
         ];
-        
+
         // Only require ingredients and steps if they're provided
         if ($request->has('ingredients')) {
             $validationRules['ingredients'] = 'array|min:1';
@@ -142,7 +142,7 @@ class RecipeController extends Controller
             $validationRules['ingredients.*.unit'] = 'nullable|string';
             $validationRules['ingredients.*.notes'] = 'nullable|string';
         }
-        
+
         if ($request->has('steps')) {
             $validationRules['steps'] = 'array|min:1';
             $validationRules['steps.*.instruction'] = 'required|string';
@@ -157,10 +157,7 @@ class RecipeController extends Controller
             'source_url' => $validated['source_url'] ?? null,
         ]);
 
-        if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('recipe-images', 'public');
-            $recipe->update(['image_path' => $path]);
-        }
+        $this->attachUploadedImages($recipe, $request);
 
         // Only update ingredients if they're provided
         if ($request->has('ingredients')) {
@@ -222,12 +219,12 @@ class RecipeController extends Controller
     public function importImage(Request $request)
     {
         $validated = $request->validate([
-            'image' => 'required|image|max:5120' // 5MB max
+            'image' => 'required|image|max:5120', // 5MB max
         ]);
 
         try {
             $path = $request->file('image')->store('recipe-imports', 'public');
-            $fullPath = storage_path('app/public/' . $path);
+            $fullPath = storage_path('app/public/'.$path);
 
             $recipe = app(RecipeImportService::class)->importFromImage(
                 $fullPath,
@@ -239,5 +236,33 @@ class RecipeController extends Controller
         } catch (\Exception $e) {
             return back()->withErrors(['image' => 'Unable to process recipe from this image.']);
         }
+    }
+
+    private function attachUploadedImages(Recipe $recipe, Request $request): void
+    {
+        $images = collect($request->file('images', []));
+
+        if ($request->hasFile('image')) {
+            $images->prepend($request->file('image'));
+        }
+
+        $nextSortOrder = (int) $recipe->images()->max('sort_order') + 1;
+
+        $images
+            ->filter(fn ($image) => $image instanceof UploadedFile)
+            ->values()
+            ->each(function (UploadedFile $image, int $index) use ($recipe, $nextSortOrder) {
+                $path = $image->store('recipe-images', 'public');
+
+                $recipe->images()->create([
+                    'path' => $path,
+                    'disk' => 'public',
+                    'sort_order' => $nextSortOrder + $index,
+                ]);
+
+                if (! $recipe->image_path) {
+                    $recipe->update(['image_path' => $path]);
+                }
+            });
     }
 }

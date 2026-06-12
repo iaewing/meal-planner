@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Ingredient;
 use App\Models\Recipe;
 use GuzzleHttp\Client;
+use GuzzleHttp\Psr7\Uri;
+use GuzzleHttp\Psr7\UriResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -333,11 +335,7 @@ class RecipeImportService
                 Log::warning('No instructions found in recipe data');
             }
 
-            // Import image if available
-            if (isset($recipeData['image'])) {
-                $imageUrl = is_array($recipeData['image']) ? $recipeData['image'][0] : $recipeData['image'];
-                $this->downloadAndAttachImage($recipe, $imageUrl);
-            }
+            $this->downloadAndAttachImages($recipe, $this->extractImageUrls($crawler, $recipeData, $url));
 
             // Parse nutrition information if available
             if (isset($recipeData['nutrition'])) {
@@ -725,15 +723,38 @@ class RecipeImportService
         return preg_match('/^\d|cup|tablespoon|teaspoon|pound|ounce|gram/i', $line);
     }
 
+    protected function downloadAndAttachImages(Recipe $recipe, array $imageUrls): void
+    {
+        foreach (array_slice($this->uniqueImageUrls($imageUrls), 0, 8) as $imageUrl) {
+            $this->downloadAndAttachImage($recipe, $imageUrl);
+        }
+    }
+
     protected function downloadAndAttachImage(Recipe $recipe, string $imageUrl): void
     {
         try {
-            $response = Http::get($imageUrl);
-            $extension = pathinfo(parse_url($imageUrl, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'jpg';
+            $response = Http::withHeaders([
+                'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept' => 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                'Referer' => parse_url($imageUrl, PHP_URL_SCHEME).'://'.parse_url($imageUrl, PHP_URL_HOST),
+            ])->timeout(30)->get($imageUrl);
+
+            if (! $response->successful()) {
+                throw new \Exception("Image request failed with status {$response->status()}");
+            }
+
+            $contentType = $response->header('Content-Type', '');
+            if ($contentType && ! str_starts_with(strtolower($contentType), 'image/')) {
+                throw new \Exception("Unexpected image content type {$contentType}");
+            }
+
+            $extension = $this->imageExtensionFromUrlOrContentType($imageUrl, $contentType);
             $path = "recipe-images/{$recipe->id}-".uniqid().".{$extension}";
 
             Storage::disk('s3')->put($path, $response->body());
-            $recipe->update(['image_path' => $path]);
+            if (! $recipe->image_path) {
+                $recipe->update(['image_path' => $path]);
+            }
             $recipe->images()->create([
                 'path' => $path,
                 'disk' => 's3',
@@ -743,6 +764,220 @@ class RecipeImportService
             // Log error but don't fail the import
             Log::error("Failed to download recipe image: {$e->getMessage()}");
         }
+    }
+
+    protected function extractImageUrls(Crawler $crawler, array $recipeData, string $baseUrl): array
+    {
+        return $this->uniqueImageUrls([
+            ...$this->extractImageUrlsFromStructuredData($recipeData['image'] ?? null, $baseUrl),
+            ...$this->extractImageUrlsFromStructuredData($recipeData['thumbnailUrl'] ?? null, $baseUrl),
+            ...$this->extractImageUrlsFromStructuredData($recipeData['photo'] ?? null, $baseUrl),
+            ...$this->extractImageUrlsFromMetaTags($crawler, $baseUrl),
+            ...$this->extractImageUrlsFromHtml($crawler, $baseUrl),
+        ]);
+    }
+
+    protected function extractImageUrlsFromStructuredData(mixed $value, ?string $baseUrl = null): array
+    {
+        if (! $value) {
+            return [];
+        }
+
+        if (is_string($value)) {
+            return $this->normalizeImageUrl($value, $baseUrl) ? [$this->normalizeImageUrl($value, $baseUrl)] : [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $urls = [];
+        foreach (['url', 'contentUrl', 'thumbnailUrl'] as $key) {
+            if (isset($value[$key]) && is_string($value[$key])) {
+                $urls[] = $value[$key];
+            }
+        }
+
+        foreach ($value as $item) {
+            if (is_array($item)) {
+                $urls = [
+                    ...$urls,
+                    ...$this->extractImageUrlsFromStructuredData($item, $baseUrl),
+                ];
+            } elseif (is_string($item) && $this->looksLikeImageUrl($item)) {
+                $urls[] = $item;
+            }
+        }
+
+        return $this->uniqueImageUrls(array_filter(array_map(
+            fn (string $url) => $this->normalizeImageUrl($url, $baseUrl),
+            $urls
+        )));
+    }
+
+    protected function extractImageUrlsFromMetaTags(Crawler $crawler, string $baseUrl): array
+    {
+        $selectors = [
+            'meta[property="og:image"]',
+            'meta[property="og:image:url"]',
+            'meta[property="og:image:secure_url"]',
+            'meta[name="twitter:image"]',
+            'meta[name="twitter:image:src"]',
+            'link[rel="image_src"]',
+        ];
+
+        $urls = [];
+        foreach ($selectors as $selector) {
+            $crawler->filter($selector)->each(function (Crawler $node) use (&$urls, $baseUrl) {
+                $attribute = $node->nodeName() === 'link' ? 'href' : 'content';
+                $url = $this->normalizeImageUrl($node->attr($attribute), $baseUrl);
+                if ($url) {
+                    $urls[] = $url;
+                }
+            });
+        }
+
+        return $this->uniqueImageUrls($urls);
+    }
+
+    protected function extractImageUrlsFromHtml(Crawler $crawler, string $baseUrl): array
+    {
+        $selectors = [
+            '.recipe-card img',
+            '.recipe img',
+            '[itemtype*="Recipe"] img',
+            '[itemprop="image"]',
+            '.lead-media img',
+            '.primary-image img',
+            '[class*="hero"] img',
+            '[class*="recipe"] img',
+            'article img',
+        ];
+
+        $urls = [];
+        foreach ($selectors as $selector) {
+            $crawler->filter($selector)->each(function (Crawler $node) use (&$urls, $baseUrl) {
+                $urls = [
+                    ...$urls,
+                    ...$this->extractImageUrlsFromNode($node, $baseUrl),
+                ];
+            });
+        }
+
+        return $this->uniqueImageUrls($urls);
+    }
+
+    protected function extractImageUrlsFromNode(Crawler $node, string $baseUrl): array
+    {
+        $urls = [];
+        foreach (['src', 'data-src', 'data-original', 'data-lazy-src', 'data-pin-media', 'content', 'href'] as $attribute) {
+            $url = $this->normalizeImageUrl($node->attr($attribute), $baseUrl);
+            if ($url) {
+                $urls[] = $url;
+            }
+        }
+
+        foreach (['srcset', 'data-srcset'] as $attribute) {
+            $url = $this->bestImageFromSrcset($node->attr($attribute), $baseUrl);
+            if ($url) {
+                $urls[] = $url;
+            }
+        }
+
+        return $this->uniqueImageUrls($urls);
+    }
+
+    protected function bestImageFromSrcset(?string $srcset, string $baseUrl): ?string
+    {
+        if (! $srcset) {
+            return null;
+        }
+
+        $bestUrl = null;
+        $bestWidth = 0;
+        foreach (explode(',', $srcset) as $candidate) {
+            $parts = preg_split('/\s+/', trim($candidate));
+            $url = $this->normalizeImageUrl($parts[0] ?? null, $baseUrl);
+            if (! $url) {
+                continue;
+            }
+
+            $width = isset($parts[1]) && str_ends_with($parts[1], 'w')
+                ? (int) rtrim($parts[1], 'w')
+                : $bestWidth + 1;
+
+            if ($width >= $bestWidth) {
+                $bestUrl = $url;
+                $bestWidth = $width;
+            }
+        }
+
+        return $bestUrl;
+    }
+
+    protected function normalizeImageUrl(?string $url, ?string $baseUrl = null): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+
+        $url = html_entity_decode(trim($url));
+        if ($url === '' || str_starts_with($url, 'data:') || str_starts_with($url, 'blob:')) {
+            return null;
+        }
+
+        try {
+            if (str_starts_with($url, '//')) {
+                return 'https:'.$url;
+            }
+
+            if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+                return $url;
+            }
+
+            if (! $baseUrl) {
+                return null;
+            }
+
+            return (string) UriResolver::resolve(new Uri($baseUrl), new Uri($url));
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
+    }
+
+    protected function uniqueImageUrls(array $urls): array
+    {
+        return collect($urls)
+            ->filter(fn ($url) => is_string($url) && preg_match('/^https?:\/\//i', $url))
+            ->map(fn ($url) => preg_replace('/#.*$/', '', $url))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function looksLikeImageUrl(string $url): bool
+    {
+        if (preg_match('/\.(jpe?g|png|webp|gif|avif)(\?.*)?$/i', $url)) {
+            return true;
+        }
+
+        return str_contains($url, '/image/') || str_contains($url, 'images');
+    }
+
+    protected function imageExtensionFromUrlOrContentType(string $url, string $contentType): string
+    {
+        $extension = strtolower(pathinfo(parse_url($url, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
+        if (in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'])) {
+            return $extension === 'jpeg' ? 'jpg' : $extension;
+        }
+
+        return match (strtolower(strtok($contentType, ';') ?: '')) {
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+            'image/avif' => 'avif',
+            default => 'jpg',
+        };
     }
 
     protected function parseAllRecipes(Crawler $crawler, string $url, int $userId): Recipe
@@ -1173,16 +1408,7 @@ class RecipeImportService
                 Log::debug('Failed to find steps', ['error' => $e->getMessage()]);
             }
 
-            // Get main recipe image
-            try {
-                $imageUrl = $crawler->filter('.lead-media img, .primary-image img, .recipe-card img, [class*="hero"] img')->attr('src');
-                if ($imageUrl) {
-                    $this->downloadAndAttachImage($recipe, $imageUrl);
-                }
-            } catch (\Exception $e) {
-                // Image is optional, continue if not found
-                Log::debug('No recipe image found', ['error' => $e->getMessage()]);
-            }
+            $this->downloadAndAttachImages($recipe, $this->extractImageUrls($crawler, [], $url));
 
             return $recipe;
         } catch (\Exception $e) {
@@ -1329,30 +1555,7 @@ class RecipeImportService
                 }
             }
 
-            // Get main recipe image
-            try {
-                $imageSelectors = [
-                    '.m-MediaBlock__a-Image img',
-                    '.o-Recipe__m-MediaBlock img',
-                    '.o-RecipeInfo__m-MediaBlock img',
-                    '[itemprop="image"]',
-                ];
-
-                foreach ($imageSelectors as $selector) {
-                    try {
-                        $imageUrl = $crawler->filter($selector)->attr('src');
-                        if ($imageUrl) {
-                            $this->downloadAndAttachImage($recipe, $imageUrl);
-                            break;
-                        }
-                    } catch (\Exception $e) {
-                        continue;
-                    }
-                }
-            } catch (\Exception $e) {
-                // Image is optional, continue if not found
-                Log::debug('No recipe image found', ['error' => $e->getMessage()]);
-            }
+            $this->downloadAndAttachImages($recipe, $this->extractImageUrls($crawler, [], $url));
 
             return $recipe;
         } catch (\Exception $e) {
@@ -1436,10 +1639,10 @@ class RecipeImportService
                 }
             }
 
-            // Import image
-            if (isset($recipeData['image']['url'])) {
-                $this->downloadAndAttachImage($recipe, $recipeData['image']['url']);
-            }
+            $this->downloadAndAttachImages(
+                $recipe,
+                $this->extractImageUrlsFromStructuredData($recipeData['image'] ?? null, $url)
+            );
 
             return $recipe;
         } catch (\Exception $e) {
@@ -1765,10 +1968,13 @@ class RecipeImportService
             }
         }
 
-        // Import image
-        if (isset($data['image'])) {
-            $this->downloadAndAttachImage($recipe, $data['image']);
-        }
+        $this->downloadAndAttachImages(
+            $recipe,
+            [
+                ...$this->extractImageUrlsFromStructuredData($data['image'] ?? null, $url),
+                ...$this->extractImageUrlsFromStructuredData($data['images'] ?? null, $url),
+            ]
+        );
 
         return $recipe;
     }

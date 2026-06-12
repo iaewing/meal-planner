@@ -33,7 +33,7 @@ const EditRecipe = ({ auth }) => {
         name: recipe.name,
         description: recipe.description || '',
         source_url: recipe.source_url || '',
-        image: null,
+        images: [],
         servings: recipe.servings || '',
         prep_time: recipe.prep_time || '',
         cook_time: recipe.cook_time || '',
@@ -61,9 +61,13 @@ const EditRecipe = ({ auth }) => {
             : [] // Empty array if no ingredients
     );
     
-    // Preview image
-    const [imagePreview, setImagePreview] = useState(
-        recipe.image_path ? `/storage/${recipe.image_path}` : null
+    const existingImages = recipe.images && recipe.images.length > 0
+        ? recipe.images
+        : (recipe.image_url ? [{ id: 'legacy', image_url: recipe.image_url }] : []);
+
+    // Preview newly selected images
+    const [imagePreviews, setImagePreviews] = useState(
+        existingImages.map(image => image.image_url)
     );
 
     useEffect(() => {
@@ -81,7 +85,7 @@ const EditRecipe = ({ auth }) => {
             name: data.name,
             description: data.description,
             source_url: data.source_url,
-            image: data.image,
+            images: data.images,
             _method: 'PUT'
         };
 
@@ -183,18 +187,25 @@ const EditRecipe = ({ auth }) => {
         });
     };
 
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        setData({...data, image: file});
-        
-        // Create preview URL
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result);
-            };
-            reader.readAsDataURL(file);
+    const handleImagesChange = (e) => {
+        const files = Array.from(e.target.files);
+        setData({...data, images: files});
+
+        if (files.length === 0) {
+            setImagePreviews(existingImages.map(image => image.image_url));
+            return;
         }
+
+        Promise.all(files.map(file => new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(file);
+        }))).then(previews => {
+            setImagePreviews([
+                ...existingImages.map(image => image.image_url),
+                ...previews
+            ]);
+        });
     };
 
     return (
@@ -277,30 +288,34 @@ const EditRecipe = ({ auth }) => {
                                     </div>
                                 )}
                                 
-                                {/* Recipe Image */}
+                                {/* Recipe Images */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Recipe Image
+                                        Recipe Images
                                     </label>
                                     
-                                    {imagePreview && (
-                                        <div className="mb-4">
-                                            <img 
-                                                src={imagePreview} 
-                                                alt="Recipe preview" 
-                                                className="w-64 h-64 object-cover rounded-md"
-                                            />
+                                    {imagePreviews.length > 0 && (
+                                        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                                            {imagePreviews.map((preview, index) => (
+                                                <img
+                                                    key={`${preview}-${index}`}
+                                                    src={preview}
+                                                    alt={`Recipe preview ${index + 1}`}
+                                                    className="aspect-square w-full object-cover rounded-md"
+                                                />
+                                            ))}
                                         </div>
                                     )}
                                     
                                     <input
                                         type="file"
-                                        onChange={handleImageChange}
+                                        onChange={handleImagesChange}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
                                         accept="image/*"
+                                        multiple
                                     />
                                     <p className="text-sm text-gray-500 mt-1">
-                                        Upload a new image to replace the existing one or add an image to this recipe.
+                                        Upload one or more images to add to this recipe.
                                     </p>
                                 </div>
                                 
@@ -441,7 +456,7 @@ const EditRecipe = ({ auth }) => {
                                         type="submit"
                                         className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                                     >
-                                        {imageOnlyMode ? 'Update Image' : 'Update Recipe'}
+                                        {imageOnlyMode ? 'Update Images' : 'Update Recipe'}
                                     </button>
                                 </div>
                             </form>

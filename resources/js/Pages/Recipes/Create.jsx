@@ -14,7 +14,7 @@ const CreateRecipe = ({ auth }) => {
         name: '',
         description: '',
         source_url: '',
-        image: null,
+        images: [],
         servings: '',
         prep_time: '',
         cook_time: '',
@@ -128,8 +128,8 @@ const CreateRecipe = ({ auth }) => {
         });
     };
 
-    const handleImageChange = (e) => {
-        setData({...data, image: e.target.files[0]});
+    const handleImagesChange = (e) => {
+        setData({...data, images: Array.from(e.target.files)});
     };
 
     return (
@@ -225,14 +225,20 @@ const CreateRecipe = ({ auth }) => {
                                 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Recipe Image (Optional)
+                                        Recipe Images (Optional)
                                     </label>
                                     <input
                                         type="file"
-                                        onChange={handleImageChange}
+                                        onChange={handleImagesChange}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
                                         accept="image/*"
+                                        multiple
                                     />
+                                    {data.images.length > 0 && (
+                                        <p className="mt-2 text-sm text-gray-600">
+                                            {data.images.length} {data.images.length === 1 ? 'image' : 'images'} selected
+                                        </p>
+                                    )}
                                 </div>
                                 
                                 {/* Ingredients */}

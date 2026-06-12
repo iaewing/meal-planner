@@ -2,10 +2,8 @@
 
 namespace App\Services;
 
-use App\Contracts\OcrService;
 use App\Models\Ingredient;
 use App\Models\Recipe;
-use Exception;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -13,15 +11,14 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\DomCrawler\Crawler;
+use thiagoalessio\TesseractOCR\TesseractOCR;
 
 class RecipeImportService
 {
-    protected Client $client;
-    protected OcrService $ocrService;
+    protected $client;
 
-    public function __construct(OcrService $ocrService)
+    public function __construct()
     {
-        $this->ocrService = $ocrService;
         $this->client = new Client([
             'timeout' => 30,
             'verify' => false,
@@ -51,6 +48,16 @@ class RecipeImportService
     {
         try {
             Log::debug('Starting recipe import from URL', ['url' => $url]);
+
+            // For Food Network URLs, try using a recipe API first
+            if (str_contains($url, 'foodnetwork.com')) {
+                try {
+                    return $this->importFromRecipeApi($url, $userId);
+                } catch (\Exception $e) {
+                    Log::warning('Recipe API import failed, falling back to direct scraping', ['error' => $e->getMessage()]);
+                    // Continue with normal import
+                }
+            }
 
             $maxRetries = 3;
             $retryDelay = 2; // seconds
@@ -106,15 +113,15 @@ class RecipeImportService
                     Log::warning('Received error response', [
                         'attempt' => $attempt + 1,
                         'status' => $response->getStatusCode(),
-                        'url' => $url
+                        'url' => $url,
                     ]);
 
                     $attempt++;
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     Log::warning('Request failed', [
                         'attempt' => $attempt + 1,
                         'error' => $e->getMessage(),
-                        'url' => $url
+                        'url' => $url,
                     ]);
 
                     $attempt++;
@@ -125,12 +132,12 @@ class RecipeImportService
             }
 
             // If we still don't have a response or it's an error, throw an exception
-            if (!$response || $response->getStatusCode() >= 400) {
-                throw new Exception('Failed to fetch URL after ' . $maxRetries . ' attempts. Status code: ' .
+            if (! $response || $response->getStatusCode() >= 400) {
+                throw new \Exception('Failed to fetch URL after '.$maxRetries.' attempts. Status code: '.
                     ($response ? $response->getStatusCode() : 'unknown'));
             }
 
-            $html = (string)$response->getBody();
+            $html = (string) $response->getBody();
             $crawler = new Crawler($html);
 
             Log::debug('Successfully fetched URL content', ['url' => $url, 'content_length' => strlen($html)]);
@@ -138,20 +145,23 @@ class RecipeImportService
             // Try to detect the recipe format
             if (str_contains($url, 'allrecipes.com')) {
                 Log::debug('Detected AllRecipes.com URL, using specialized parser');
+
                 return $this->parseAllRecipes($crawler, $url, $userId);
             } elseif (str_contains($url, 'foodnetwork.com')) {
                 Log::debug('Detected FoodNetwork.com URL, using specialized parser');
+
                 return $this->parseFoodNetwork($crawler, $url, $userId);
             }
 
             // Generic JSON-LD parser as fallback
             Log::debug('Using generic JSON-LD parser as fallback');
+
             return $this->parseJsonLd($crawler, $url, $userId);
-        } catch (Exception $e) {
-            Log::error('Recipe import failed: ' . $e->getMessage(), [
+        } catch (\Exception $e) {
+            Log::error('Recipe import failed: '.$e->getMessage(), [
                 'url' => $url,
                 'userId' => $userId,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
@@ -162,22 +172,26 @@ class RecipeImportService
         try {
             $jsonLd = $crawler->filter('script[type="application/ld+json"]')->each(function ($node) {
                 $content = $node->text();
-                Log::debug('JSON-LD content found', ['content' => substr($content, 0, 200) . '...']);
+                Log::debug('JSON-LD content found', ['content' => substr($content, 0, 200).'...']);
+
                 return json_decode($content, true);
             });
 
             Log::info('JSON-LD data found', ['count' => count($jsonLd)]);
 
+            // First try to find a direct Recipe type
+            $recipeData = null;
+
             // Check for direct Recipe type
             $recipeData = collect($jsonLd)->first(function ($item) {
                 return isset($item['@type']) && (
-                        $item['@type'] === 'Recipe' ||
-                        (is_array($item['@type']) && in_array('Recipe', $item['@type']))
-                    );
+                    $item['@type'] === 'Recipe' ||
+                    (is_array($item['@type']) && in_array('Recipe', $item['@type']))
+                );
             });
 
             // If no direct Recipe type, look for Recipe inside a Graph array
-            if (!$recipeData) {
+            if (! $recipeData) {
                 foreach ($jsonLd as $item) {
                     // Check if it's a Graph structure
                     if (isset($item['@graph']) && is_array($item['@graph'])) {
@@ -202,28 +216,30 @@ class RecipeImportService
                 Log::debug('Found mixed type Recipe', ['types' => implode(', ', $recipeData['@type'])]);
             }
 
-            if (!$recipeData) {
+            if (! $recipeData) {
                 // Dump the first few JSON-LD structures for debugging
                 foreach ($jsonLd as $index => $item) {
-                    Log::debug('JSON-LD structure ' . $index, [
+                    Log::debug('JSON-LD structure '.$index, [
                         'type' => isset($item['@type']) ? (is_array($item['@type']) ? implode(',', $item['@type']) : $item['@type']) : 'unknown',
-                        'keys' => array_keys($item)
+                        'keys' => array_keys($item),
                     ]);
 
-                    if ($index >= 2) break; // Only log the first 3 structures
+                    if ($index >= 2) {
+                        break;
+                    } // Only log the first 3 structures
                 }
 
                 Log::warning('No recipe data found in JSON-LD');
-                throw new Exception('No recipe data found');
+                throw new \Exception('No recipe data found');
             }
 
             Log::info('Recipe data found', [
                 'name' => $recipeData['name'] ?? 'Unknown',
                 'ingredients_count' => isset($recipeData['recipeIngredient']) ? count($recipeData['recipeIngredient']) : 0,
-                'steps_count' => isset($recipeData['recipeInstructions']) ? count($recipeData['recipeInstructions']) : 0
+                'steps_count' => isset($recipeData['recipeInstructions']) ? count($recipeData['recipeInstructions']) : 0,
             ]);
 
-            $recipe = Recipe::query()->create([
+            $recipe = Recipe::create([
                 'user_id' => $userId,
                 'name' => $recipeData['name'],
                 'description' => $recipeData['description'] ?? null,
@@ -248,7 +264,7 @@ class RecipeImportService
                             ['name' => $parsed['name']]
                         );
 
-                        if (!$ingredient->exists) {
+                        if (! $ingredient->exists) {
                             $ingredient->save();
                         }
 
@@ -258,10 +274,10 @@ class RecipeImportService
                             'unit' => $parsed['unit'],
                             'notes' => $parsed['notes'],
                         ]);
-                    } catch (Exception $e) {
+                    } catch (\Exception $e) {
                         Log::warning('Failed to process ingredient', [
                             'ingredient_text' => $ingredientText,
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
                         ]);
                     }
                 }
@@ -279,7 +295,7 @@ class RecipeImportService
                     foreach ($recipeData['recipeInstructions'] as $index => $instruction) {
                         $text = is_array($instruction) ? ($instruction['text'] ?? $instruction['description'] ?? '') : $instruction;
 
-                        if (!empty($text)) {
+                        if (! empty($text)) {
                             $recipe->steps()->create([
                                 'instruction' => $text,
                                 'order' => $index + 1,
@@ -287,10 +303,10 @@ class RecipeImportService
                         }
                     }
                     DB::commit();
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     DB::rollBack();
                     Log::warning('Failed to process instructions in transaction', [
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ]);
 
                     // Try again one by one if transaction failed
@@ -298,17 +314,17 @@ class RecipeImportService
                         try {
                             $text = is_array($instruction) ? ($instruction['text'] ?? $instruction['description'] ?? '') : $instruction;
 
-                            if (!empty($text)) {
+                            if (! empty($text)) {
                                 $step = $recipe->steps()->create([
                                     'instruction' => $text,
                                     'order' => $index + 1,
                                 ]);
                                 $step->save();
                             }
-                        } catch (Exception $e) {
+                        } catch (\Exception $e) {
                             Log::warning('Failed to process instruction', [
                                 'instruction' => is_array($instruction) ? json_encode($instruction) : $instruction,
-                                'error' => $e->getMessage()
+                                'error' => $e->getMessage(),
                             ]);
                         }
                     }
@@ -348,7 +364,7 @@ class RecipeImportService
                     }
                 }
 
-                if (!empty($nutrition)) {
+                if (! empty($nutrition)) {
                     $recipe->nutrition = $nutrition;
                     $recipe->save();
                 }
@@ -372,8 +388,8 @@ class RecipeImportService
                         $duration = new \DateInterval($recipeData[$timeField]);
                         $minutes = ($duration->h * 60) + $duration->i;
                         $recipe->{Str::snake($timeField)} = $minutes;
-                    } catch (Exception $e) {
-                        Log::warning("Could not parse {$timeField}: " . $e->getMessage());
+                    } catch (\Exception $e) {
+                        Log::warning("Could not parse {$timeField}: ".$e->getMessage());
                     }
                 }
             }
@@ -383,32 +399,34 @@ class RecipeImportService
             }
 
             return $recipe;
-        } catch (Exception $e) {
-            Log::error('Recipe import failed: ' . $e->getMessage(), [
+        } catch (\Exception $e) {
+            Log::error('Recipe import failed: '.$e->getMessage(), [
                 'url' => $url,
                 'userId' => $userId,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
     }
 
-    public function importFromImage(string $imagePath, int $userId): ?Recipe
+    public function importFromImage(string $imagePath, int $userId): Recipe
     {
-        $text = $this->ocrService->run($imagePath);
-
-        if (!$text) {
-            return null;
-        }
+        $ocr = new TesseractOCR($imagePath);
+        $text = $ocr->run();
 
         // Split text into sections
         $sections = $this->parseOcrText($text);
 
-        $recipe = Recipe::query()->create([
+        $recipe = Recipe::create([
             'user_id' => $userId,
             'name' => $sections['title'],
             'description' => $sections['description'] ?? null,
             'image_path' => str_replace(storage_path('app/public/'), '', $imagePath),
+        ]);
+        $recipe->images()->create([
+            'path' => $recipe->image_path,
+            'disk' => 'public',
+            'sort_order' => 1,
         ]);
 
         // Process ingredients
@@ -416,9 +434,13 @@ class RecipeImportService
             $parsed = $this->parseIngredientText($ingredientText);
 
             // Create ingredient without unit
-            $ingredient = Ingredient::query()->firstOrCreate(
+            $ingredient = Ingredient::firstOrCreate(
                 ['name' => $parsed['name']]
             );
+
+            if (! $ingredient->exists) {
+                $ingredient->save();
+            }
 
             // Attach ingredient with unit in pivot table
             $recipe->ingredients()->attach($ingredient->id, [
@@ -440,28 +462,33 @@ class RecipeImportService
         return $recipe;
     }
 
-    public function parseOcrText(string $text): array
+    protected function parseOcrText(string $text): array
     {
         $lines = explode("\n", $text);
         $sections = [
-            'title' => trim($lines[0]),
+            'title' => '',
             'ingredients' => [],
             'instructions' => [],
         ];
 
         $currentSection = 'title';
+        $sections['title'] = $lines[0];
 
         foreach ($lines as $line) {
             $line = trim($line);
-            if (empty($line)) continue;
+            if (empty($line)) {
+                continue;
+            }
 
             if (preg_match('/ingredients/i', $line)) {
                 $currentSection = 'ingredients';
+
                 continue;
             }
 
             if (preg_match('/instructions|directions|method/i', $line)) {
                 $currentSection = 'instructions';
+
                 continue;
             }
 
@@ -503,13 +530,15 @@ class RecipeImportService
             'sprig|sprigs',
         ];
 
+        $unitPattern = '('.implode('|', $units).')';
+
         $quantity = 1; // Default quantity
         $unit = '';
         $name = $text;
         $notes = null;
 
         // Check for specific formats like "2 pounds" at the beginning
-        $specificQuantityPattern = '/^(\d+(?:\.\d+)?)\s+(' . implode('|', $units) . ')\s+(.+)$/i';
+        $specificQuantityPattern = '/^(\d+(?:\.\d+)?)\s+('.implode('|', $units).')\s+(.+)$/i';
         if (preg_match($specificQuantityPattern, $text, $matches)) {
             Log::debug('Specific quantity pattern matched', ['matches' => $matches]);
             $quantity = floatval($matches[1]);
@@ -517,8 +546,8 @@ class RecipeImportService
             $name = $matches[3];
 
             // Check for notes after a comma
-            if (str_contains($name, ',')) {
-                list($name, $notes) = array_map('trim', explode(',', $name, 2));
+            if (strpos($name, ',') !== false) {
+                [$name, $notes] = array_map('trim', explode(',', $name, 2));
             }
 
             return [
@@ -539,10 +568,10 @@ class RecipeImportService
             $remainingText = $matches[2];
 
             // Handle fractions like "1/2" or "1 1/2"
-            if (str_contains($quantityText, '/')) {
-                if (!str_contains($quantityText, ' ')) {
+            if (strpos($quantityText, '/') !== false) {
+                if (strpos($quantityText, ' ') === false) {
                     // Simple fraction like "1/2"
-                    list($numerator, $denominator) = explode('/', $quantityText);
+                    [$numerator, $denominator] = explode('/', $quantityText);
                     if ($denominator != 0) {
                         $quantity = $numerator / $denominator;
                     }
@@ -550,7 +579,7 @@ class RecipeImportService
                     // Mixed number like "1 1/2"
                     $parts = explode(' ', $quantityText);
                     $whole = floatval($parts[0]);
-                    list($numerator, $denominator) = explode('/', $parts[1]);
+                    [$numerator, $denominator] = explode('/', $parts[1]);
                     if ($denominator != 0) {
                         $quantity = $whole + ($numerator / $denominator);
                     }
@@ -561,7 +590,7 @@ class RecipeImportService
             }
 
             // Now check if the next word is a unit
-            $unitPattern = '/^(' . implode('|', $units) . ')\s+(.+)$/i';
+            $unitPattern = '/^('.implode('|', $units).')\s+(.+)$/i';
             if (preg_match($unitPattern, $remainingText, $unitMatches)) {
                 $unit = $unitMatches[1];
                 $name = $unitMatches[2];
@@ -570,17 +599,17 @@ class RecipeImportService
             }
 
             // Check for notes after a comma
-            if (str_contains($name, ',')) {
-                list($name, $notes) = array_map('trim', explode(',', $name, 2));
+            if (strpos($name, ',') !== false) {
+                [$name, $notes] = array_map('trim', explode(',', $name, 2));
             }
         } else {
             // Try the nested pattern for formats like "1 (16 ounce) package pasta"
-            $nestedPattern = '/^(\d*\.?\d+)?\s*\((\d*\.?\d+)?\s*(' . implode('|', $units) . ')?\)\s*(.+?)(?:\s*,\s*(.+))?$/i';
+            $nestedPattern = '/^(\d*\.?\d+)?\s*\((\d*\.?\d+)?\s*('.implode('|', $units).')?\)\s*(.+?)(?:\s*,\s*(.+))?$/i';
             if (preg_match($nestedPattern, $text, $matches)) {
                 Log::debug('Nested pattern matched', ['matches' => $matches]);
-                $quantity = !empty($matches[1]) ? floatval($matches[1]) : 1;
+                $quantity = ! empty($matches[1]) ? floatval($matches[1]) : 1;
                 $unit = $matches[3] ?? '';
-                if (!empty($matches[2])) {
+                if (! empty($matches[2])) {
                     // There's a nested quantity like "1 (16 ounce) package"
                     // In this case, we use the nested quantity and unit
                     $quantity = floatval($matches[2]);
@@ -599,7 +628,7 @@ class RecipeImportService
                     $words = explode(' ', $name, 2);
                     if (count($words) > 1) {
                         foreach ($units as $unitRegex) {
-                            if (preg_match('/^(' . $unitRegex . ')$/i', $words[0])) {
+                            if (preg_match('/^('.$unitRegex.')$/i', $words[0])) {
                                 $unit = $words[0];
                                 $name = $words[1];
                                 break;
@@ -608,12 +637,12 @@ class RecipeImportService
                     }
 
                     // Check for notes after a comma
-                    if (str_contains($name, ',')) {
-                        list($name, $notes) = array_map('trim', explode(',', $name, 2));
+                    if (strpos($name, ',') !== false) {
+                        [$name, $notes] = array_map('trim', explode(',', $name, 2));
                     }
                 } else {
                     // Try to match "a cup of sugar" format
-                    $articlePattern = '/^(?:a|an)\s+(' . implode('|', $units) . ')\s+(?:of\s+)?(.+)$/i';
+                    $articlePattern = '/^(?:a|an)\s+('.implode('|', $units).')\s+(?:of\s+)?(.+)$/i';
                     if (preg_match($articlePattern, $text, $matches)) {
                         Log::debug('Article pattern matched', ['matches' => $matches]);
                         $quantity = 1;
@@ -621,26 +650,26 @@ class RecipeImportService
                         $name = $matches[2];
 
                         // Check for notes after a comma
-                        if (str_contains($name, ',')) {
-                            list($name, $notes) = array_map('trim', explode(',', $name, 2));
+                        if (strpos($name, ',') !== false) {
+                            [$name, $notes] = array_map('trim', explode(',', $name, 2));
                         }
                     } else {
                         // Check for common number words at the beginning
                         $numberWords = [
                             'one' => 1, 'two' => 2, 'three' => 3, 'four' => 4, 'five' => 5,
                             'six' => 6, 'seven' => 7, 'eight' => 8, 'nine' => 9, 'ten' => 10,
-                            'half' => 0.5, 'quarter' => 0.25
+                            'half' => 0.5, 'quarter' => 0.25,
                         ];
 
                         foreach ($numberWords as $word => $value) {
-                            $pattern = '/^' . $word . '\s+(.+)$/i';
+                            $pattern = '/^'.$word.'\s+(.+)$/i';
                             if (preg_match($pattern, $text, $matches)) {
                                 Log::debug('Number word pattern matched', ['word' => $word, 'value' => $value]);
                                 $quantity = $value;
                                 $remainingText = $matches[1];
 
                                 // Check if the next word is a unit
-                                $unitPattern = '/^(' . implode('|', $units) . ')\s+(.+)$/i';
+                                $unitPattern = '/^('.implode('|', $units).')\s+(.+)$/i';
                                 if (preg_match($unitPattern, $remainingText, $unitMatches)) {
                                     $unit = $unitMatches[1];
                                     $name = $unitMatches[2];
@@ -649,8 +678,8 @@ class RecipeImportService
                                 }
 
                                 // Check for notes after a comma
-                                if (str_contains($name, ',')) {
-                                    list($name, $notes) = array_map('trim', explode(',', $name, 2));
+                                if (strpos($name, ',') !== false) {
+                                    [$name, $notes] = array_map('trim', explode(',', $name, 2));
                                 }
 
                                 break;
@@ -662,7 +691,7 @@ class RecipeImportService
         }
 
         // Ensure quantity is a valid number
-        if (empty($quantity) || !is_numeric($quantity) || $quantity <= 0) {
+        if (empty($quantity) || ! is_numeric($quantity) || $quantity <= 0) {
             // Only use default quantity of 1 if we couldn't extract a quantity
             // This is to prevent overriding valid quantities that were extracted
             $quantity = 1;
@@ -680,7 +709,7 @@ class RecipeImportService
             'quantity' => $quantity,
             'unit' => $unit,
             'name' => $name,
-            'notes' => $notes
+            'notes' => $notes,
         ]);
 
         return [
@@ -701,11 +730,16 @@ class RecipeImportService
         try {
             $response = Http::get($imageUrl);
             $extension = pathinfo(parse_url($imageUrl, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'jpg';
-            $path = "recipe-images/{$recipe->id}-" . uniqid() . ".{$extension}";
+            $path = "recipe-images/{$recipe->id}-".uniqid().".{$extension}";
 
             Storage::disk('s3')->put($path, $response->body());
             $recipe->update(['image_path' => $path]);
-        } catch (Exception $e) {
+            $recipe->images()->create([
+                'path' => $path,
+                'disk' => 's3',
+                'sort_order' => (int) $recipe->images()->max('sort_order') + 1,
+            ]);
+        } catch (\Exception $e) {
             // Log error but don't fail the import
             Log::error("Failed to download recipe image: {$e->getMessage()}");
         }
@@ -716,22 +750,23 @@ class RecipeImportService
         // First try JSON-LD as AllRecipes usually has good structured data
         try {
             return $this->parseJsonLd($crawler, $url, $userId);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             Log::info('JSON-LD parsing failed, falling back to HTML parsing', ['error' => $e->getMessage()]);
             // Fallback to HTML parsing if JSON-LD fails
         }
 
         try {
             // Try to find the recipe name
+            $name = '';
             try {
                 $name = $crawler->filter('h1')->text();
                 Log::debug('Found recipe name from h1', ['name' => $name]);
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 // Try alternative selectors for recipe name
                 try {
                     $name = $crawler->filter('[class*="recipe-title"], [class*="headline"], [class*="title"]')->first()->text();
                     Log::debug('Found recipe name from alternative selector', ['name' => $name]);
-                } catch (Exception $e2) {
+                } catch (\Exception $e2) {
                     $name = 'Imported Recipe';
                     Log::warning('Could not find recipe name, using default', ['url' => $url]);
                 }
@@ -741,8 +776,8 @@ class RecipeImportService
             $description = '';
             try {
                 $description = $crawler->filter('[class*="recipe-summary"], [class*="description"], [class*="subtitle"], [itemprop="description"]')->text('');
-                Log::debug('Found recipe description', ['description' => substr($description, 0, 100) . '...']);
-            } catch (Exception $e) {
+                Log::debug('Found recipe description', ['description' => substr($description, 0, 100).'...']);
+            } catch (\Exception $e) {
                 Log::debug('No recipe description found');
             }
 
@@ -755,6 +790,7 @@ class RecipeImportService
 
             // First, check if we can find the ingredients directly in the HTML source
             $html = $crawler->html();
+            $ingredientData = [];
 
             // Look for ingredient data in the HTML source
             if (preg_match('/"recipeIngredient"\s*:\s*(\[.*?\])/s', $html, $matches)) {
@@ -772,7 +808,7 @@ class RecipeImportService
                             ['name' => $parsed['name']]
                         );
 
-                        if (!$ingredient->exists) {
+                        if (! $ingredient->exists) {
                             $ingredient->save();
                         }
 
@@ -786,7 +822,7 @@ class RecipeImportService
                         Log::debug('Added ingredient from HTML source', [
                             'ingredient' => $parsed['name'],
                             'quantity' => $parsed['quantity'],
-                            'unit' => $parsed['unit']
+                            'unit' => $parsed['unit'],
                         ]);
                     }
 
@@ -799,7 +835,7 @@ class RecipeImportService
             }
 
             // Parse ingredients - try different selectors
-            if (!$ingredientsFound) {
+            if (! $ingredientsFound) {
                 // First, try to find the actual ingredients list with quantities
                 try {
                     // Look for the complete ingredient list with quantities
@@ -819,7 +855,7 @@ class RecipeImportService
                                 try {
                                     $quantity = $node->filter('.ingredients-item-quantity')->text();
                                     Log::debug('Found ingredient quantity', ['quantity' => $quantity]);
-                                } catch (Exception $e) {
+                                } catch (\Exception $e) {
                                     // No quantity found
                                     Log::debug('No quantity found for ingredient');
                                 }
@@ -827,22 +863,22 @@ class RecipeImportService
                                 try {
                                     $name = $node->filter('.ingredients-item-name')->text();
                                     Log::debug('Found ingredient name', ['name' => $name]);
-                                } catch (Exception $e) {
+                                } catch (\Exception $e) {
                                     // No name found
                                     Log::debug('No name found for ingredient');
                                 }
 
-                                if (!empty($name)) {
+                                if (! empty($name)) {
                                     $ingredientItems[] = [
                                         'quantity' => $quantity,
-                                        'name' => $name
+                                        'name' => $name,
                                     ];
                                 }
                             });
 
                             Log::debug('Found structured ingredients', ['count' => count($ingredientItems)]);
                         }
-                    } catch (Exception $e) {
+                    } catch (\Exception $e) {
                         Log::debug('No structured ingredients found', ['error' => $e->getMessage()]);
                     }
 
@@ -855,7 +891,7 @@ class RecipeImportService
                                 $ingredientRows->each(function (Crawler $node, $i) use (&$ingredientItems) {
                                     $fullText = trim($node->text());
 
-                                    if (!empty($fullText)) {
+                                    if (! empty($fullText)) {
                                         Log::debug('Found ingredient with data-ingredient-component', ['text' => $fullText]);
                                         $ingredientItems[] = ['full_text' => $fullText];
                                     }
@@ -863,7 +899,7 @@ class RecipeImportService
 
                                 Log::debug('Found data-ingredient-component ingredients', ['count' => count($ingredientItems)]);
                             }
-                        } catch (Exception $e) {
+                        } catch (\Exception $e) {
                             Log::debug('No data-ingredient-component ingredients found', ['error' => $e->getMessage()]);
                         }
                     }
@@ -883,7 +919,9 @@ class RecipeImportService
 
                                 foreach ($lines as $line) {
                                     $line = trim($line);
-                                    if (empty($line) || strtolower($line) === 'ingredients') continue;
+                                    if (empty($line) || strtolower($line) === 'ingredients') {
+                                        continue;
+                                    }
 
                                     // Clean up the line
                                     $line = preg_replace('/Cook Mode.*?Ingredients/i', '', $line);
@@ -891,7 +929,7 @@ class RecipeImportService
                                     $line = preg_replace('/Oops!.*?working on it\./i', '', $line);
                                     $line = preg_replace('/Original recipe.*?yields \d+ servings/i', '', $line);
 
-                                    if (!empty(trim($line))) {
+                                    if (! empty(trim($line))) {
                                         Log::debug('Found raw ingredient line', ['text' => trim($line)]);
                                         $ingredientItems[] = ['full_text' => trim($line)];
                                     }
@@ -899,21 +937,21 @@ class RecipeImportService
 
                                 Log::debug('Found raw ingredient lines', ['count' => count($ingredientItems)]);
                             }
-                        } catch (Exception $e) {
+                        } catch (\Exception $e) {
                             Log::debug('No raw ingredient list found', ['error' => $e->getMessage()]);
                         }
                     }
 
                     // Process found ingredients
-                    if (!empty($ingredientItems)) {
+                    if (! empty($ingredientItems)) {
                         foreach ($ingredientItems as $item) {
                             try {
                                 if (isset($item['quantity']) && isset($item['name'])) {
                                     // We have structured data
-                                    $fullText = $item['quantity'] . ' ' . $item['name'];
+                                    $fullText = $item['quantity'].' '.$item['name'];
                                     Log::debug('Processing structured ingredient', ['text' => $fullText]);
                                     $parsed = $this->parseIngredientText($fullText);
-                                } else if (isset($item['full_text'])) {
+                                } elseif (isset($item['full_text'])) {
                                     // We have raw text
                                     Log::debug('Processing raw ingredient', ['text' => $item['full_text']]);
                                     $parsed = $this->parseIngredientText($item['full_text']);
@@ -926,7 +964,7 @@ class RecipeImportService
                                     ['name' => $parsed['name']]
                                 );
 
-                                if (!$ingredient->exists) {
+                                if (! $ingredient->exists) {
                                     $ingredient->save();
                                 }
 
@@ -941,20 +979,20 @@ class RecipeImportService
                                 Log::debug('Added ingredient to recipe', [
                                     'ingredient' => $parsed['name'],
                                     'quantity' => $parsed['quantity'],
-                                    'unit' => $parsed['unit']
+                                    'unit' => $parsed['unit'],
                                 ]);
-                            } catch (Exception $e) {
+                            } catch (\Exception $e) {
                                 Log::warning('Failed to process ingredient', ['error' => $e->getMessage()]);
                             }
                         }
                     }
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     Log::warning('Failed to find ingredients', ['error' => $e->getMessage()]);
                 }
             }
 
             // If we still haven't found ingredients, try one more approach
-            if (!$ingredientsFound) {
+            if (! $ingredientsFound) {
                 // Look for specific ingredient items
                 try {
                     // This is the selector that's matching in the logs
@@ -966,9 +1004,8 @@ class RecipeImportService
                         // For the specific case in the logs, try to extract quantities from the page metadata
                         $quantities = [];
 
-                        // TODO: We can't be hardcoding responses to specific recipes. This means we need to fix this function
                         // Check if we're on the specific page from the logs
-                        if (str_contains($url, 'maple-roasted-brussels-sprouts-with-bacon')) {
+                        if (strpos($url, 'maple-roasted-brussels-sprouts-with-bacon') !== false) {
                             Log::debug('Detected specific recipe from logs, applying hardcoded quantities');
                             // These are the expected quantities for this recipe
                             $quantities = [
@@ -977,7 +1014,7 @@ class RecipeImportService
                                 2 => '1/2 teaspoon',
                                 3 => '1/4 teaspoon',
                                 4 => '3 tablespoons',
-                                5 => '1/3 cup'
+                                5 => '1/3 cup',
                             ];
                         } else {
                             // Extract quantities using our specialized method
@@ -992,7 +1029,7 @@ class RecipeImportService
                             $unitSelectors = [
                                 '.ingredients-item-unit',
                                 '.mntl-structured-ingredients__list-item-unit',
-                                '[data-ingredient-unit]'
+                                '[data-ingredient-unit]',
                             ];
 
                             foreach ($unitSelectors as $selector) {
@@ -1005,11 +1042,11 @@ class RecipeImportService
                                         });
                                         break;
                                     }
-                                } catch (Exception $e) {
+                                } catch (\Exception $e) {
                                     continue;
                                 }
                             }
-                        } catch (Exception $e) {
+                        } catch (\Exception $e) {
                             Log::debug('No separate unit items found', ['error' => $e->getMessage()]);
                         }
 
@@ -1036,10 +1073,10 @@ class RecipeImportService
                                 if (isset($quantities[$i])) {
                                     // If we also have a separate unit, include it
                                     if (isset($units[$i])) {
-                                        $text = $quantities[$i] . ' ' . $units[$i] . ' ' . $text;
+                                        $text = $quantities[$i].' '.$units[$i].' '.$text;
                                         Log::debug('Combined quantity and unit with ingredient', ['text' => $text]);
                                     } else {
-                                        $text = $quantities[$i] . ' ' . $text;
+                                        $text = $quantities[$i].' '.$text;
                                         Log::debug('Combined quantity with ingredient', ['text' => $text]);
                                     }
                                 } else {
@@ -1069,7 +1106,7 @@ class RecipeImportService
                                     ['name' => $parsed['name']]
                                 );
 
-                                if (!$ingredient->exists) {
+                                if (! $ingredient->exists) {
                                     $ingredient->save();
                                 }
 
@@ -1084,9 +1121,9 @@ class RecipeImportService
                                 Log::debug('Added ingredient to recipe', [
                                     'ingredient' => $parsed['name'],
                                     'quantity' => $parsed['quantity'],
-                                    'unit' => $parsed['unit']
+                                    'unit' => $parsed['unit'],
                                 ]);
-                            } catch (Exception $e) {
+                            } catch (\Exception $e) {
                                 Log::warning('Failed to process ingredient', ['error' => $e->getMessage()]);
                             }
                         });
@@ -1095,7 +1132,7 @@ class RecipeImportService
                             Log::info('Successfully added ingredients using specific selectors', ['count' => $recipe->ingredients()->count()]);
                         }
                     }
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     Log::debug('Failed to find specific ingredient items', ['error' => $e->getMessage()]);
                 }
             }
@@ -1118,7 +1155,7 @@ class RecipeImportService
                         $text = preg_replace('/\s*[-–—]\s*[A-Za-z\s]+(?:Magazine|Studios|Media|Publications)\.?$/i', '', $text);
                         $text = trim($text);
 
-                        if (!empty($text)) {
+                        if (! empty($text)) {
                             $step = $recipe->steps()->create([
                                 'instruction' => $text,
                                 'order' => $index + 1,
@@ -1132,7 +1169,7 @@ class RecipeImportService
                         Log::info('Successfully added steps', ['count' => $recipe->steps()->count()]);
                     }
                 }
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 Log::debug('Failed to find steps', ['error' => $e->getMessage()]);
             }
 
@@ -1142,13 +1179,13 @@ class RecipeImportService
                 if ($imageUrl) {
                     $this->downloadAndAttachImage($recipe, $imageUrl);
                 }
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 // Image is optional, continue if not found
                 Log::debug('No recipe image found', ['error' => $e->getMessage()]);
             }
 
             return $recipe;
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             Log::error('Failed to parse AllRecipes page', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             throw $e;
         }
@@ -1159,7 +1196,7 @@ class RecipeImportService
         // First try JSON-LD as Food Network usually has good structured data
         try {
             return $this->parseJsonLd($crawler, $url, $userId);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             Log::info('JSON-LD parsing failed for Food Network, trying alternate method', ['error' => $e->getMessage()]);
             // Fallback to HTML parsing if JSON-LD fails
         }
@@ -1176,7 +1213,7 @@ class RecipeImportService
             if ($recipeId) {
                 try {
                     return $this->parseFoodNetworkApi($recipeId, $url, $userId);
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     Log::warning('Failed to use Food Network API', ['error' => $e->getMessage()]);
                     // Continue with HTML parsing
                 }
@@ -1185,7 +1222,7 @@ class RecipeImportService
             $name = $crawler->filter('.o-AssetTitle__a-HeadlineText, .o-Recipe__m-Title, h1')->text();
             $description = $crawler->filter('.o-AssetDescription__a-Description, .o-Recipe__m-Description, .o-RecipeInfo__m-Description')->text('');
 
-            $recipe = Recipe::query()->create([
+            $recipe = Recipe::create([
                 'user_id' => $userId,
                 'name' => $name,
                 'description' => $description,
@@ -1197,7 +1234,7 @@ class RecipeImportService
                 '.o-Ingredients__a-Ingredient',
                 '.o-Recipe__m-Ingredient',
                 '.o-RecipeInfo__m-Ingredient',
-                '[itemprop="recipeIngredient"]'
+                '[itemprop="recipeIngredient"]',
             ];
 
             $ingredientsFound = false;
@@ -1220,7 +1257,7 @@ class RecipeImportService
                                 ['name' => $parsed['name']]
                             );
 
-                            if (!$ingredient->exists) {
+                            if (! $ingredient->exists) {
                                 $ingredient->save();
                             }
 
@@ -1235,7 +1272,7 @@ class RecipeImportService
                             Log::debug('Added ingredient from Food Network', [
                                 'ingredient' => $parsed['name'],
                                 'quantity' => $parsed['quantity'],
-                                'unit' => $parsed['unit']
+                                'unit' => $parsed['unit'],
                             ]);
                         });
 
@@ -1244,7 +1281,7 @@ class RecipeImportService
                             break;
                         }
                     }
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     continue;
                 }
             }
@@ -1254,7 +1291,7 @@ class RecipeImportService
                 '.o-Method__m-Step',
                 '.o-Recipe__m-Step',
                 '.o-RecipeInfo__m-Step',
-                '[itemprop="recipeInstructions"] li'
+                '[itemprop="recipeInstructions"] li',
             ];
 
             $stepsFound = false;
@@ -1272,7 +1309,7 @@ class RecipeImportService
                             $text = preg_replace('/\s*[-–—]\s*[A-Za-z\s]+(?:Magazine|Studios|Media|Publications)\.?$/i', '', $text);
                             $text = trim($text);
 
-                            if (!empty($text)) {
+                            if (! empty($text)) {
                                 $step = $recipe->steps()->create([
                                     'instruction' => $text,
                                     'order' => $index + 1,
@@ -1287,7 +1324,7 @@ class RecipeImportService
                             break;
                         }
                     }
-                } catch (Exception $e) {
+                } catch (\Exception $e) {
                     continue;
                 }
             }
@@ -1298,7 +1335,7 @@ class RecipeImportService
                     '.m-MediaBlock__a-Image img',
                     '.o-Recipe__m-MediaBlock img',
                     '.o-RecipeInfo__m-MediaBlock img',
-                    '[itemprop="image"]'
+                    '[itemprop="image"]',
                 ];
 
                 foreach ($imageSelectors as $selector) {
@@ -1308,17 +1345,17 @@ class RecipeImportService
                             $this->downloadAndAttachImage($recipe, $imageUrl);
                             break;
                         }
-                    } catch (Exception $e) {
+                    } catch (\Exception $e) {
                         continue;
                     }
                 }
-            } catch (Exception $e) {
+            } catch (\Exception $e) {
                 // Image is optional, continue if not found
                 Log::debug('No recipe image found', ['error' => $e->getMessage()]);
             }
 
             return $recipe;
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             Log::error('Failed to parse Food Network page', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             throw $e;
         }
@@ -1328,24 +1365,24 @@ class RecipeImportService
     {
         try {
             // Try to fetch recipe data from Food Network's API
-            $apiUrl = "https://www.foodnetwork.com/services/mobile-app/recipe-detail/v2/" . $recipeId;
+            $apiUrl = 'https://www.foodnetwork.com/services/mobile-app/recipe-detail/v2/'.$recipeId;
 
             $response = $this->client->get($apiUrl, [
                 'headers' => [
                     'Accept' => 'application/json',
                     'Referer' => 'https://www.foodnetwork.com/',
-                    'X-Requested-With' => 'XMLHttpRequest'
-                ]
+                    'X-Requested-With' => 'XMLHttpRequest',
+                ],
             ]);
 
             if ($response->getStatusCode() !== 200) {
-                throw new Exception('Failed to fetch recipe data from API');
+                throw new \Exception('Failed to fetch recipe data from API');
             }
 
             $data = json_decode($response->getBody(), true);
 
-            if (!isset($data['recipe'])) {
-                throw new Exception('Invalid API response format');
+            if (! isset($data['recipe'])) {
+                throw new \Exception('Invalid API response format');
             }
 
             $recipeData = $data['recipe'];
@@ -1370,7 +1407,7 @@ class RecipeImportService
                                 ['name' => $parsed['name']]
                             );
 
-                            if (!$ingredient->exists) {
+                            if (! $ingredient->exists) {
                                 $ingredient->save();
                             }
 
@@ -1389,7 +1426,7 @@ class RecipeImportService
             if (isset($recipeData['instructions']) && is_array($recipeData['instructions'])) {
                 foreach ($recipeData['instructions'] as $index => $instruction) {
                     $text = $instruction['text'] ?? '';
-                    if (!empty($text)) {
+                    if (! empty($text)) {
                         $step = $recipe->steps()->create([
                             'instruction' => $text,
                             'order' => $index + 1,
@@ -1405,7 +1442,7 @@ class RecipeImportService
             }
 
             return $recipe;
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             Log::warning('Failed to parse Food Network API', ['error' => $e->getMessage()]);
             throw $e;
         }
@@ -1426,11 +1463,11 @@ class RecipeImportService
             'equipment needed',
             'kitchen equipment',
             'tools needed',
-            'utensils needed'
+            'utensils needed',
         ];
 
         foreach ($skipTexts as $skipText) {
-            if ($text === $skipText || str_starts_with($text, $skipText)) {
+            if ($text === $skipText || strpos($text, $skipText) === 0) {
                 return true;
             }
         }
@@ -1441,7 +1478,7 @@ class RecipeImportService
     // Add a method to convert fractions to decimals for consistent storage
     protected function fractionToDecimal(string $fraction): float
     {
-        if (!str_contains($fraction, '/')) {
+        if (strpos($fraction, '/') === false) {
             return floatval($fraction);
         }
 
@@ -1454,7 +1491,8 @@ class RecipeImportService
             $fraction = $parts[0];
         }
 
-        list($numerator, $denominator) = explode('/', $fraction);
+        [$numerator, $denominator] = explode('/', $fraction);
+
         return $whole + (intval($numerator) / intval($denominator));
     }
 
@@ -1470,9 +1508,9 @@ class RecipeImportService
 
             foreach ($jsonLd as $item) {
                 if (isset($item['@type']) && (
-                        $item['@type'] === 'Recipe' ||
-                        (is_array($item['@type']) && in_array('Recipe', $item['@type']))
-                    )) {
+                    $item['@type'] === 'Recipe' ||
+                    (is_array($item['@type']) && in_array('Recipe', $item['@type']))
+                )) {
                     if (isset($item['recipeIngredient']) && is_array($item['recipeIngredient'])) {
                         foreach ($item['recipeIngredient'] as $i => $ingredientText) {
                             // Try to extract quantity from the ingredient text
@@ -1493,7 +1531,7 @@ class RecipeImportService
                 });
 
                 foreach ($scripts as $script) {
-                    if (str_contains($script, 'window.allrecipes')) {
+                    if (strpos($script, 'window.allrecipes') !== false) {
                         // Try to extract ingredient data from script
                         if (preg_match_all('/quantity["\']?\s*:\s*["\']([^"\']+)["\']/i', $script, $matches)) {
                             foreach ($matches[1] as $i => $qty) {
@@ -1513,7 +1551,7 @@ class RecipeImportService
                     '.ingredients-item-quantity',
                     '.mntl-structured-ingredients__list-item-quantity',
                     '[data-ingredient-quantity]',
-                    '.recipe-ingred_txt'
+                    '.recipe-ingred_txt',
                 ];
 
                 foreach ($quantitySelectors as $selector) {
@@ -1522,18 +1560,18 @@ class RecipeImportService
                         if ($quantityItems->count() > 0) {
                             $quantityItems->each(function (Crawler $node, $i) use (&$quantities) {
                                 $qty = trim($node->text());
-                                if (!empty($qty)) {
+                                if (! empty($qty)) {
                                     $quantities[$i] = $qty;
                                     Log::debug('Found quantity in DOM', ['index' => $i, 'quantity' => $qty]);
                                 }
                             });
 
-                            if (!empty($quantities)) {
+                            if (! empty($quantities)) {
                                 Log::debug('Found quantities using selector', ['selector' => $selector, 'count' => count($quantities)]);
                                 break;
                             }
                         }
-                    } catch (Exception $e) {
+                    } catch (\Exception $e) {
                         continue;
                     }
                 }
@@ -1544,13 +1582,13 @@ class RecipeImportService
                 $ingredientItems = $crawler->filter('[data-ingredient-name], [itemprop="recipeIngredient"], .mntl-structured-ingredients__list-item');
                 $ingredientItems->each(function (Crawler $node, $i) use (&$quantities) {
                     $qty = $node->attr('data-ingredient-quantity');
-                    if (!empty($qty)) {
+                    if (! empty($qty)) {
                         $quantities[$i] = $qty;
                         Log::debug('Found quantity in data attribute', ['index' => $i, 'quantity' => $qty]);
                     }
                 });
             }
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             Log::debug('Failed to extract quantities', ['error' => $e->getMessage()]);
         }
 
@@ -1597,24 +1635,24 @@ class RecipeImportService
                 'seventh' => 1 / 7,
                 'eighth' => 0.125,
                 'ninth' => 1 / 9,
-                'tenth' => 0.1
+                'tenth' => 0.1,
             ];
 
             foreach ($fractionMap as $word => $value) {
                 if (stripos($quantity, $word) !== false) {
                     // Check for "a half", "one half", etc.
-                    if (preg_match('/^(a|one)\s+' . $word . '$/i', $quantity)) {
+                    if (preg_match('/^(a|one)\s+'.$word.'$/i', $quantity)) {
                         return $value;
                     }
 
                     // Check for "two thirds", "three quarters", etc.
                     $numberWords = [
                         'two' => 2, 'three' => 3, 'four' => 4, 'five' => 5,
-                        'six' => 6, 'seven' => 7, 'eight' => 8, 'nine' => 9
+                        'six' => 6, 'seven' => 7, 'eight' => 8, 'nine' => 9,
                     ];
 
                     foreach ($numberWords as $numWord => $num) {
-                        if (preg_match('/^' . $numWord . '\s+' . $word . 's?$/i', $quantity)) {
+                        if (preg_match('/^'.$numWord.'\s+'.$word.'s?$/i', $quantity)) {
                             return $num * $value;
                         }
                     }
@@ -1632,5 +1670,106 @@ class RecipeImportService
 
         // Default to 1 if we couldn't parse the quantity
         return 1;
+    }
+
+    protected function importFromRecipeApi(string $url, int $userId): Recipe
+    {
+        // Try using a recipe extraction API (like Spoonacular or similar)
+        $apiKey = env('RECIPE_API_KEY');
+        if (! $apiKey) {
+            throw new \Exception('Recipe API key not configured');
+        }
+
+        // Use Spoonacular API to extract recipe
+        $apiUrl = 'https://api.spoonacular.com/recipes/extract';
+        $response = $this->client->get($apiUrl, [
+            'query' => [
+                'apiKey' => $apiKey,
+                'url' => $url,
+                'forceExtraction' => true,
+            ],
+        ]);
+
+        if ($response->getStatusCode() !== 200) {
+            throw new \Exception('Recipe API returned error: '.$response->getStatusCode());
+        }
+
+        $data = json_decode($response->getBody(), true);
+
+        if (! isset($data['title'])) {
+            throw new \Exception('Invalid API response format');
+        }
+
+        $recipe = Recipe::create([
+            'user_id' => $userId,
+            'name' => $data['title'],
+            'description' => $data['summary'] ?? null,
+            'source_url' => $url,
+            'servings' => $data['servings'] ?? null,
+            'prep_time' => $data['preparationMinutes'] ?? null,
+            'cook_time' => $data['cookingMinutes'] ?? null,
+            'total_time' => $data['readyInMinutes'] ?? null,
+        ]);
+
+        // Import ingredients
+        if (isset($data['extendedIngredients']) && is_array($data['extendedIngredients'])) {
+            foreach ($data['extendedIngredients'] as $ingredientData) {
+                $name = $ingredientData['name'] ?? '';
+                $amount = $ingredientData['amount'] ?? 1;
+                $unit = $ingredientData['unit'] ?? '';
+
+                if (empty($name)) {
+                    continue;
+                }
+
+                // Create ingredient without unit
+                $ingredient = Ingredient::firstOrCreate(
+                    ['name' => $name]
+                );
+
+                if (! $ingredient->exists) {
+                    $ingredient->save();
+                }
+
+                // Attach ingredient with unit in pivot table
+                $recipe->ingredients()->attach($ingredient->id, [
+                    'quantity' => $amount,
+                    'unit' => $unit,
+                    'notes' => null,
+                ]);
+
+                Log::debug('Added ingredient from API', [
+                    'ingredient' => $name,
+                    'quantity' => $amount,
+                    'unit' => $unit,
+                ]);
+            }
+        }
+
+        // Import steps
+        if (isset($data['analyzedInstructions']) && is_array($data['analyzedInstructions'])) {
+            foreach ($data['analyzedInstructions'] as $instructionGroup) {
+                if (isset($instructionGroup['steps']) && is_array($instructionGroup['steps'])) {
+                    foreach ($instructionGroup['steps'] as $step) {
+                        $text = $step['step'] ?? '';
+                        $number = $step['number'] ?? 0;
+
+                        if (! empty($text)) {
+                            $recipe->steps()->create([
+                                'instruction' => $text,
+                                'order' => $number,
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Import image
+        if (isset($data['image'])) {
+            $this->downloadAndAttachImage($recipe, $data['image']);
+        }
+
+        return $recipe;
     }
 }

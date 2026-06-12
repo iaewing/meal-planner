@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CreateRecipeRequest extends FormRequest
@@ -17,7 +18,7 @@ class CreateRecipeRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -26,6 +27,8 @@ class CreateRecipeRequest extends FormRequest
             'description' => 'nullable|string',
             'source_url' => 'nullable|url',
             'image' => 'nullable|image|max:2048',
+            'images' => 'nullable|array',
+            'images.*' => 'image|max:2048',
             'ingredients' => 'required|array|min:1',
             // 'ingredients.*.ingredient_id' => 'required|exists:ingredients,id',
             // 'ingredients.*.quantity' => 'required|numeric',

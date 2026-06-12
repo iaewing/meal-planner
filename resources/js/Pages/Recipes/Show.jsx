@@ -4,6 +4,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 export default function Show({auth}) {
     const {recipe} = usePage().props
+    const recipeImages = recipe.images && recipe.images.length > 0
+        ? recipe.images
+        : (recipe.image_url ? [{ id: 'legacy', image_url: recipe.image_url }] : []);
     
     const [selectedUnits, setSelectedUnits] = useState(
         recipe.ingredients.reduce((acc, ingredient) => {
@@ -76,13 +79,18 @@ export default function Show({auth}) {
                         )}
                     </div>
                     
-                    {recipe.image_url && (
+                    {recipeImages.length > 0 && (
                         <div className="p-6 border-b">
-                            <img 
-                                src={recipe.image_url}
-                                alt={recipe.name}
-                                className="w-full max-h-96 object-cover rounded-lg"
-                            />
+                            <div className="grid gap-4 md:grid-cols-2">
+                                {recipeImages.map((image, index) => (
+                                    <img
+                                        key={image.id ?? index}
+                                        src={image.image_url}
+                                        alt={`${recipe.name} ${index + 1}`}
+                                        className="h-72 w-full object-cover rounded-lg"
+                                    />
+                                ))}
+                            </div>
                         </div>
                     )}
                     

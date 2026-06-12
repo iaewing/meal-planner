@@ -4,7 +4,9 @@ use App\Jobs\ImportRecipeFromUrl;
 use App\Models\Ingredient;
 use App\Models\Recipe;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 
 describe('creating recipes', function () {
     it('creates a recipe with steps', closure: function () {
@@ -16,7 +18,7 @@ describe('creating recipes', function () {
         $secondIngredient = Ingredient::factory()->create();
         $recipeSteps = [
             'Crack the egg',
-            'Cook the egg'
+            'Cook the egg',
         ];
         $ingredientPayload = [
             [
@@ -30,7 +32,7 @@ describe('creating recipes', function () {
                 'name' => $secondIngredient->name,
                 'quantity' => $ingredientQuantity,
                 'unit' => $secondIngredient->unit,
-            ]
+            ],
         ];
 
         $payload = createRecipePayload(
@@ -69,13 +71,79 @@ describe('creating recipes', function () {
         $this->assertDatabaseHas('recipe_steps', [
             'recipe_id' => $recipe->id,
             'instruction' => $recipeSteps[0],
-            'order' => 0
+            'order' => 0,
         ]);
         $this->assertDatabaseHas('recipe_steps', [
             'recipe_id' => $recipe->id,
             'instruction' => $recipeSteps[1],
-            'order' => 1
+            'order' => 1,
         ]);
+    });
+
+    it('creates a recipe with multiple images', closure: function () {
+        Storage::fake('public');
+
+        $ingredient = Ingredient::factory()->create();
+        $payload = createRecipePayload(
+            ingredient: [
+                [
+                    'ingredient_id' => $ingredient->id,
+                    'name' => $ingredient->name,
+                    'quantity' => 1,
+                    'unit' => $ingredient->unit,
+                ],
+            ],
+        );
+        $payload['images'] = [
+            UploadedFile::fake()->image('first.jpg'),
+            UploadedFile::fake()->image('second.jpg'),
+        ];
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post(route('recipes.store'), $payload)
+            ->assertRedirect();
+
+        $recipe = Recipe::query()->where('name', $payload['name'])->firstOrFail();
+
+        expect($recipe->images)->toHaveCount(2);
+        expect($recipe->image_path)->toBe($recipe->images->first()->path);
+
+        Storage::disk('public')->assertExists($recipe->images[0]->path);
+        Storage::disk('public')->assertExists($recipe->images[1]->path);
+    });
+});
+
+describe('editing recipes', function () {
+    it('adds multiple images to a recipe', closure: function () {
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        $recipe = Recipe::create([
+            'user_id' => $user->id,
+            'name' => 'Soup',
+            'description' => 'Warm',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('recipes.update', $recipe), [
+                '_method' => 'PUT',
+                'name' => $recipe->name,
+                'description' => $recipe->description,
+                'source_url' => null,
+                'images' => [
+                    UploadedFile::fake()->image('first.jpg'),
+                    UploadedFile::fake()->image('second.jpg'),
+                ],
+            ])
+            ->assertRedirect(route('recipes.show', $recipe));
+
+        $recipe->refresh();
+
+        expect($recipe->images)->toHaveCount(2);
+        Storage::disk('public')->assertExists($recipe->images[0]->path);
+        Storage::disk('public')->assertExists($recipe->images[1]->path);
     });
 });
 
@@ -108,14 +176,13 @@ function createRecipePayload(
         'id' => '42',
         'name' => 'Cheese',
         'quantity' => '1',
-        'unit' => 'Whole'
+        'unit' => 'Whole',
     ],
     $steps = [
         'Eat the cheese',
-        'Enjoy'
+        'Enjoy',
     ]
-)
-{
+) {
     return
         [
             'name' => $name,
@@ -137,7 +204,7 @@ function createRecipePayload(
                 'carbohydrates' => null,
                 'fiber' => null,
                 'sugar' => null,
-                'protein' => null
-            ]
+                'protein' => null,
+            ],
         ];
 }

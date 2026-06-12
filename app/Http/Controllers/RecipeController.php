@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateRecipeRequest;
+use App\Jobs\ImportRecipeFromUrl;
 use App\Models\Ingredient;
 use App\Models\Recipe;
 use App\Services\RecipeImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class RecipeController extends Controller
@@ -207,33 +207,16 @@ class RecipeController extends Controller
 
     public function importUrl(Request $request)
     {
-        $request->validate([
-            'url' => 'required|url'
+        $validated = $request->validate([
+            'url' => 'required|url',
         ]);
 
-        try {
-            $recipeImportService = new RecipeImportService();
-            $recipe = $recipeImportService->importFromUrl($request->input('url'), auth()->id());
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Recipe imported successfully',
-                'recipe' => [
-                    'id' => $recipe->id,
-                    'name' => $recipe->name,
-                    'ingredients_count' => $recipe->ingredients->count(),
-                    'steps_count' => $recipe->steps->count(),
-                    'url' => route('recipes.show', $recipe->id)
-                ]
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Recipe import failed: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to import recipe: ' . $e->getMessage()
-            ], 422);
-        }
+        ImportRecipeFromUrl::dispatch($validated['url'], auth()->id());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Recipe import queued. It will appear in your recipes once the import finishes.',
+        ], 202);
     }
 
     public function importImage(Request $request)

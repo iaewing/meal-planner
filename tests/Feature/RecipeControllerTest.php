@@ -1,8 +1,10 @@
 <?php
 
+use App\Jobs\ImportRecipeFromUrl;
 use App\Models\Ingredient;
 use App\Models\Recipe;
 use App\Models\User;
+use Illuminate\Support\Facades\Queue;
 
 describe('creating recipes', function () {
     it('creates a recipe with steps', closure: function () {
@@ -74,6 +76,27 @@ describe('creating recipes', function () {
             'instruction' => $recipeSteps[1],
             'order' => 1
         ]);
+    });
+});
+
+describe('importing recipes', function () {
+    it('queues URL imports', closure: function () {
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $url = 'https://example.com/recipes/soup';
+
+        $this->actingAs($user)
+            ->postJson(route('recipes.import-url'), ['url' => $url])
+            ->assertAccepted()
+            ->assertJson([
+                'success' => true,
+                'message' => 'Recipe import queued. It will appear in your recipes once the import finishes.',
+            ]);
+
+        Queue::assertPushed(ImportRecipeFromUrl::class, function (ImportRecipeFromUrl $job) use ($url, $user) {
+            return $job->url === $url && $job->userId === $user->id;
+        });
     });
 });
 

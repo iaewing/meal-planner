@@ -73,7 +73,7 @@ describe('creating recipes', function () {
         $this->assertDatabaseHas('recipe_steps', [
             'recipe_id' => $recipe->id,
             'instruction' => $recipeSteps[0],
-            'order' => 0,
+            'order' => 0
         ]);
         $this->assertDatabaseHas('recipe_steps', [
             'recipe_id' => $recipe->id,

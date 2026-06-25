@@ -407,25 +407,33 @@ class RecipeImportService
         }
     }
 
-    public function importFromImage(string $imagePath, int $userId): Recipe
+    public function importFromImage(string|array $imagePaths, int $userId): Recipe
     {
-        $ocr = new TesseractOCR($imagePath);
-        $text = $ocr->run();
+        $imagePaths = collect(is_array($imagePaths) ? $imagePaths : [$imagePaths])
+            ->filter()
+            ->values();
+
+        $text = $imagePaths
+            ->map(fn (string $imagePath) => (new TesseractOCR($imagePath))->run())
+            ->implode("\n\n");
 
         // Split text into sections
         $sections = $this->parseOcrText($text);
+        $firstImagePath = $imagePaths->first();
 
         $recipe = Recipe::create([
             'user_id' => $userId,
             'name' => $sections['title'],
             'description' => $sections['description'] ?? null,
-            'image_path' => str_replace(storage_path('app/public/'), '', $imagePath),
+            'image_path' => $firstImagePath ? str_replace(storage_path('app/public/'), '', $firstImagePath) : null,
         ]);
-        $recipe->images()->create([
-            'path' => $recipe->image_path,
-            'disk' => 'public',
-            'sort_order' => 1,
-        ]);
+        $imagePaths->each(function (string $imagePath, int $index) use ($recipe) {
+            $recipe->images()->create([
+                'path' => str_replace(storage_path('app/public/'), '', $imagePath),
+                'disk' => 'public',
+                'sort_order' => $index + 1,
+            ]);
+        });
 
         // Process ingredients
         foreach ($sections['ingredients'] as $ingredientText) {

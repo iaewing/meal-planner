@@ -4,6 +4,7 @@ use App\Jobs\ImportRecipeFromUrl;
 use App\Models\Ingredient;
 use App\Models\Recipe;
 use App\Models\User;
+use App\Services\RecipeImportService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -165,6 +166,37 @@ describe('importing recipes', function () {
         Queue::assertPushed(ImportRecipeFromUrl::class, function (ImportRecipeFromUrl $job) use ($url, $user) {
             return $job->url === $url && $job->userId === $user->id;
         });
+    });
+
+    it('imports recipes from multiple uploaded images', closure: function () {
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        $recipe = Recipe::create([
+            'user_id' => $user->id,
+            'name' => 'Scanned card',
+        ]);
+
+        $this->mock(RecipeImportService::class, function ($mock) use ($recipe, $user) {
+            $mock->shouldReceive('importFromImage')
+                ->once()
+                ->withArgs(function (array $paths, int $userId) use ($user) {
+                    return $userId === $user->id
+                        && count($paths) === 2
+                        && str_contains($paths[0], 'recipe-imports')
+                        && str_contains($paths[1], 'recipe-imports');
+                })
+                ->andReturn($recipe);
+        });
+
+        $this->actingAs($user)
+            ->post(route('recipes.import-image'), [
+                'images' => [
+                    UploadedFile::fake()->image('front.jpg'),
+                    UploadedFile::fake()->image('back.jpg'),
+                ],
+            ])
+            ->assertRedirect(route('recipes.edit', $recipe));
     });
 });
 

@@ -6,6 +6,7 @@ use App\Http\Requests\CreateRecipeRequest;
 use App\Jobs\ImportRecipeFromUrl;
 use App\Models\Ingredient;
 use App\Models\Recipe;
+use App\Services\RecipeIngredientService;
 use App\Services\RecipeImportService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -45,7 +46,7 @@ class RecipeController extends Controller
         ]);
     }
 
-    public function store(CreateRecipeRequest $request)
+    public function store(CreateRecipeRequest $request, RecipeIngredientService $recipeIngredientService)
     {
         $recipe = Recipe::create([
             'user_id' => auth()->id(),
@@ -59,11 +60,7 @@ class RecipeController extends Controller
 
         // Attach ingredients
         foreach ($request->input('ingredients') as $ingredient) {
-            $recipe->ingredients()->attach($ingredient['ingredient_id'], [
-                'quantity' => $ingredient['quantity'],
-                'unit' => $ingredient['unit'],
-                'notes' => $ingredient['notes'] ?? '',
-            ]);
+            $recipeIngredientService->attach($recipe, $ingredient['ingredient_id'], $ingredient);
         }
         // Create steps
         foreach ($request->input('steps') as $index => $step) {
@@ -121,7 +118,7 @@ class RecipeController extends Controller
         ]);
     }
 
-    public function update(Request $request, Recipe $recipe)
+    public function update(Request $request, Recipe $recipe, RecipeIngredientService $recipeIngredientService)
     {
         Gate::authorize('update', $recipe);
 
@@ -161,14 +158,7 @@ class RecipeController extends Controller
 
         // Only update ingredients if they're provided
         if ($request->has('ingredients')) {
-            // Sync ingredients
-            $recipe->ingredients()->sync(collect($validated['ingredients'])->mapWithKeys(function ($ingredient) {
-                return [$ingredient['ingredient_id'] => [
-                    'quantity' => $ingredient['quantity'],
-                    'unit' => $ingredient['unit'],
-                    'notes' => $ingredient['notes'],
-                ]];
-            }));
+            $recipeIngredientService->sync($recipe, $validated['ingredients']);
         }
 
         // Only update steps if they're provided

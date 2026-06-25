@@ -2,6 +2,7 @@
 
 use App\Jobs\ImportRecipeFromUrl;
 use App\Models\Ingredient;
+use App\Models\IngredientUnit;
 use App\Models\Recipe;
 use App\Models\User;
 use App\Services\RecipeImportService;
@@ -114,6 +115,41 @@ describe('creating recipes', function () {
         Storage::disk('public')->assertExists($recipe->images[0]->path);
         Storage::disk('public')->assertExists($recipe->images[1]->path);
     });
+
+    it('stores the selected ingredient unit on recipe ingredients', closure: function () {
+        $user = User::factory()->create();
+        $ingredient = Ingredient::factory()->create(['name' => 'flour']);
+        $unit = IngredientUnit::factory()->create([
+            'ingredient_id' => $ingredient->id,
+            'unit' => 'cup',
+            'is_default' => true,
+            'conversion_factor' => 1,
+        ]);
+
+        $payload = createRecipePayload(
+            ingredient: [
+                [
+                    'ingredient_id' => $ingredient->id,
+                    'name' => $ingredient->name,
+                    'quantity' => 2,
+                    'unit' => 'cup',
+                ],
+            ],
+        );
+
+        $this->actingAs($user)
+            ->post(route('recipes.store'), $payload)
+            ->assertRedirect();
+
+        $recipe = Recipe::query()->where('name', $payload['name'])->firstOrFail();
+
+        $this->assertDatabaseHas('recipe_ingredients', [
+            'recipe_id' => $recipe->id,
+            'ingredient_id' => $ingredient->id,
+            'unit' => 'cup',
+            'ingredient_unit_id' => $unit->id,
+        ]);
+    });
 });
 
 describe('editing recipes', function () {
@@ -145,6 +181,58 @@ describe('editing recipes', function () {
         expect($recipe->images)->toHaveCount(2);
         Storage::disk('public')->assertExists($recipe->images[0]->path);
         Storage::disk('public')->assertExists($recipe->images[1]->path);
+    });
+
+    it('updates the selected ingredient unit on recipe ingredients', closure: function () {
+        $user = User::factory()->create();
+        $ingredient = Ingredient::factory()->create(['name' => 'flour']);
+        $cup = IngredientUnit::factory()->create([
+            'ingredient_id' => $ingredient->id,
+            'unit' => 'cup',
+            'is_default' => true,
+            'conversion_factor' => 1,
+        ]);
+        $tablespoon = IngredientUnit::factory()->create([
+            'ingredient_id' => $ingredient->id,
+            'unit' => 'tbsp',
+            'is_default' => false,
+            'conversion_factor' => 0.063,
+        ]);
+        $recipe = Recipe::create([
+            'user_id' => $user->id,
+            'name' => 'Pancakes',
+            'description' => 'Breakfast',
+        ]);
+        $recipe->ingredients()->attach($ingredient, [
+            'quantity' => 1,
+            'unit' => 'cup',
+            'ingredient_unit_id' => $cup->id,
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('recipes.update', $recipe), [
+                '_method' => 'PUT',
+                'name' => $recipe->name,
+                'description' => $recipe->description,
+                'source_url' => null,
+                'ingredients' => [
+                    [
+                        'ingredient_id' => $ingredient->id,
+                        'quantity' => 3,
+                        'unit' => 'tbsp',
+                        'notes' => '',
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('recipes.show', $recipe));
+
+        $this->assertDatabaseHas('recipe_ingredients', [
+            'recipe_id' => $recipe->id,
+            'ingredient_id' => $ingredient->id,
+            'quantity' => 3,
+            'unit' => 'tbsp',
+            'ingredient_unit_id' => $tablespoon->id,
+        ]);
     });
 });
 

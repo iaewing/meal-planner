@@ -18,15 +18,17 @@
   - Keep enough original text to preserve recipe readability.
 
 - [ ] Finish grocery list correctness
-  - Current grocery list UI and route exist, but aggregation is naive.
-  - Convert compatible units before summing quantities.
-  - Group incompatible units separately instead of silently combining them.
-  - Handle duplicate recipes in a meal plan.
-  - Add feature tests for grocery list aggregation.
+  - [x] Extract grocery aggregation out of the controller.
+  - [x] Convert compatible units before summing quantities.
+  - [x] Group incompatible units separately instead of silently combining them.
+  - [x] Handle duplicate recipes in a meal plan.
+  - [x] Add feature tests for grocery list aggregation.
+  - [ ] Choose display units deliberately instead of using the first unit encountered.
 
 - [ ] Finish ingredient unit support
   - Current ingredient unit models, migrations, UI, and converter exist.
-  - Ensure recipe ingredients consistently reference `ingredient_unit_id`.
+  - [x] Ensure recipe ingredients created or edited in the app reference `ingredient_unit_id` when the unit is known.
+  - [x] Ensure imported recipes use the same recipe ingredient attach path.
   - Define fallback behavior for unknown or incompatible conversions.
   - Add controller tests for adding units and changing defaults.
 
@@ -35,3 +37,5 @@
 - [ ] Allow users to create a recipe from images of a double-sided recipe card
 - [ ] Add recipe rating system
 - [ ] Investigate Instagram import
+- [ ] Add toast for when a recipe upload/import completes
+- [ ] Intelligently display ingredient quantities. Current `8.00 Tablespoons Unsalted Butter` can and should be displayed to the user as `8 Tablespoons Unsalted Butter`

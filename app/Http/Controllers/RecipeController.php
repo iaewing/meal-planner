@@ -218,23 +218,38 @@ class RecipeController extends Controller
 
     public function importImage(Request $request)
     {
-        $validated = $request->validate([
-            'image' => 'required|image|max:5120', // 5MB max
+        $request->validate([
+            'image' => 'nullable|required_without:images|image|max:5120', // 5MB max
+            'images' => 'nullable|required_without:image|array|min:1',
+            'images.*' => 'image|max:5120',
         ]);
 
         try {
-            $path = $request->file('image')->store('recipe-imports', 'public');
-            $fullPath = storage_path('app/public/'.$path);
+            $images = collect($request->file('images', []));
+
+            if ($request->hasFile('image')) {
+                $images->prepend($request->file('image'));
+            }
+
+            $fullPaths = $images
+                ->filter(fn ($image) => $image instanceof UploadedFile)
+                ->values()
+                ->map(function (UploadedFile $image) {
+                    $path = $image->store('recipe-imports', 'public');
+
+                    return storage_path('app/public/'.$path);
+                })
+                ->all();
 
             $recipe = app(RecipeImportService::class)->importFromImage(
-                $fullPath,
+                $fullPaths,
                 auth()->id()
             );
 
             return redirect()->route('recipes.edit', $recipe)
                 ->with('success', 'Recipe imported successfully. Please review and adjust as needed.');
         } catch (\Exception $e) {
-            return back()->withErrors(['image' => 'Unable to process recipe from this image.']);
+            return back()->withErrors(['images' => 'Unable to process recipe from these images.']);
         }
     }
 

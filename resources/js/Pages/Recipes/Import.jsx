@@ -9,7 +9,7 @@ import axios from 'axios';
 
 export default function Import({ auth, flash }) {
     const { data: imageData, setData: setImageData, post: postImage, processing: imageProcessing, errors: imageErrors, reset: resetImage } = useForm({
-        image: null,
+        images: [],
     });
 
     const [dragActive, setDragActive] = useState(false);
@@ -92,15 +92,23 @@ export default function Import({ auth, flash }) {
         }
     };
 
+    const handleImageSelection = (files) => {
+        setImageData('images', Array.from(files));
+    };
+
     const handleDrop = (e) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);
 
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            setImageData('image', e.dataTransfer.files[0]);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleImageSelection(e.dataTransfer.files);
         }
     };
+
+    const selectedImageLabel = imageData.images.length > 0
+        ? imageData.images.map((image) => image.name).join(', ')
+        : 'Drop images here or click to select';
 
     return (
         <AuthenticatedLayout
@@ -182,25 +190,30 @@ export default function Import({ auth, flash }) {
                                         type="file"
                                         id="image"
                                         className="hidden"
-                                        onChange={e => setImageData('image', e.target.files[0])}
+                                        onChange={e => handleImageSelection(e.target.files)}
                                         accept="image/*"
+                                        multiple
                                         disabled={imageProcessing}
                                     />
                                     <label
                                         htmlFor="image"
                                         className={`cursor-pointer text-gray-600 ${imageProcessing ? 'pointer-events-none' : ''}`}
                                     >
-                                        {imageData.image
-                                            ? imageData.image.name
-                                            : 'Drop an image here or click to select'}
+                                        {selectedImageLabel}
                                     </label>
+                                    {imageData.images.length > 0 && (
+                                        <p className="mt-2 text-sm text-gray-500">
+                                            {imageData.images.length} {imageData.images.length === 1 ? 'image' : 'images'} selected
+                                        </p>
+                                    )}
                                     <InputError message={imageErrors.image} className="mt-2" />
+                                    <InputError message={imageErrors.images} className="mt-2" />
                                 </div>
 
                                 <div className="mt-4 flex items-center justify-end">
                                     <PrimaryButton
                                         className="w-full justify-center sm:w-auto"
-                                        disabled={imageProcessing || !imageData.image}
+                                        disabled={imageProcessing || imageData.images.length === 0}
                                     >
                                         {imageProcessing ? 'Importing...' : 'Import from Image'}
                                     </PrimaryButton>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MealPlan;
 use App\Models\Recipe;
+use App\Services\GroceryListService;
 use App\Services\MealPlanRandomizerService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -138,30 +139,13 @@ class MealPlanController extends Controller
             ->with('success', 'Meal plan deleted successfully.');
     }
 
-    public function groceryList(MealPlan $mealPlan)
+    public function groceryList(MealPlan $mealPlan, GroceryListService $groceryListService)
     {
         $this->authorize('view', $mealPlan);
 
-        $ingredients = $mealPlan->recipes()
-            ->with('ingredients')
-            ->get()
-            ->pluck('ingredients')
-            ->flatten()
-            ->groupBy('id')
-            ->map(function ($group) {
-                $first = $group->first();
-                return [
-                    'id' => $first->id,
-                    'name' => $first->name,
-                    'total_quantity' => $group->sum('pivot.quantity'),
-                    'unit' => $first->pivot->unit,
-                ];
-            })
-            ->values();
-
         return Inertia::render('MealPlans/GroceryList', [
             'mealPlan' => $mealPlan,
-            'ingredients' => $ingredients
+            'ingredients' => $groceryListService->ingredientsFor($mealPlan),
         ]);
     }
 

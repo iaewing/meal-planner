@@ -270,12 +270,7 @@ class RecipeImportService
                             $ingredient->save();
                         }
 
-                        // Attach ingredient with unit in pivot table
-                        $recipe->ingredients()->attach($ingredient->id, [
-                            'quantity' => $parsed['quantity'],
-                            'unit' => $parsed['unit'],
-                            'notes' => $parsed['notes'],
-                        ]);
+                        $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
                     } catch (\Exception $e) {
                         Log::warning('Failed to process ingredient', [
                             'ingredient_text' => $ingredientText,
@@ -448,12 +443,7 @@ class RecipeImportService
                 $ingredient->save();
             }
 
-            // Attach ingredient with unit in pivot table
-            $recipe->ingredients()->attach($ingredient->id, [
-                'quantity' => $parsed['quantity'],
-                'unit' => $parsed['unit'],
-                'notes' => $parsed['notes'],
-            ]);
+            $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
         }
 
         // Process steps
@@ -1055,12 +1045,7 @@ class RecipeImportService
                             $ingredient->save();
                         }
 
-                        // Attach ingredient with unit in pivot table
-                        $recipe->ingredients()->attach($ingredient->id, [
-                            'quantity' => $parsed['quantity'],
-                            'unit' => $parsed['unit'],
-                            'notes' => $parsed['notes'],
-                        ]);
+                        $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
 
                         Log::debug('Added ingredient from HTML source', [
                             'ingredient' => $parsed['name'],
@@ -1211,12 +1196,7 @@ class RecipeImportService
                                     $ingredient->save();
                                 }
 
-                                // Attach ingredient with unit in pivot table
-                                $recipe->ingredients()->attach($ingredient->id, [
-                                    'quantity' => $parsed['quantity'],
-                                    'unit' => $parsed['unit'],
-                                    'notes' => $parsed['notes'],
-                                ]);
+                                $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
 
                                 $ingredientsFound = true;
                                 Log::debug('Added ingredient to recipe', [
@@ -1353,12 +1333,7 @@ class RecipeImportService
                                     $ingredient->save();
                                 }
 
-                                // Attach ingredient with unit in pivot table
-                                $recipe->ingredients()->attach($ingredient->id, [
-                                    'quantity' => $parsed['quantity'],
-                                    'unit' => $parsed['unit'],
-                                    'notes' => $parsed['notes'],
-                                ]);
+                                $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
 
                                 $ingredientsFound = true;
                                 Log::debug('Added ingredient to recipe', [
@@ -1495,12 +1470,7 @@ class RecipeImportService
                                 $ingredient->save();
                             }
 
-                            // Attach ingredient with unit in pivot table
-                            $recipe->ingredients()->attach($ingredient->id, [
-                                'quantity' => $parsed['quantity'],
-                                'unit' => $parsed['unit'],
-                                'notes' => $parsed['notes'],
-                            ]);
+                            $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
 
                             $ingredientsFound = true;
                             Log::debug('Added ingredient from Food Network', [
@@ -1622,12 +1592,7 @@ class RecipeImportService
                                 $ingredient->save();
                             }
 
-                            // Attach ingredient with unit in pivot table
-                            $recipe->ingredients()->attach($ingredient->id, [
-                                'quantity' => $parsed['quantity'],
-                                'unit' => $parsed['unit'],
-                                'notes' => $parsed['notes'],
-                            ]);
+                            $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
                         }
                     }
                 }
@@ -1942,12 +1907,7 @@ class RecipeImportService
                     $ingredient->save();
                 }
 
-                // Attach ingredient with unit in pivot table
-                $recipe->ingredients()->attach($ingredient->id, [
-                    'quantity' => $amount,
-                    'unit' => $unit,
-                    'notes' => null,
-                ]);
+                $this->attachIngredient($recipe, $ingredient, $amount, $unit, null);
 
                 Log::debug('Added ingredient from API', [
                     'ingredient' => $name,
@@ -1985,5 +1945,14 @@ class RecipeImportService
         );
 
         return $recipe;
+    }
+
+    private function attachIngredient(Recipe $recipe, Ingredient $ingredient, $quantity, ?string $unit, ?string $notes): void
+    {
+        app(RecipeIngredientService::class)->attach($recipe, $ingredient->id, [
+            'quantity' => $quantity,
+            'unit' => $unit,
+            'notes' => $notes,
+        ]);
     }
 }

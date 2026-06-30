@@ -45,3 +45,33 @@ describe('determining conversion factor', function () {
         expect($conversionFactor)->toBe(0.063);
     });
 });
+
+describe('choosing display units', function () {
+    it('prefers cups over tablespoons when the total is at least one cup', closure: function () {
+        expect(UnitConverter::chooseDisplayUnit(19, 'tbsp'))->toBe([
+            'quantity' => 1.19,
+            'unit' => 'cup',
+        ]);
+    });
+
+    it('keeps tablespoons when the total is under one cup', closure: function () {
+        expect(UnitConverter::chooseDisplayUnit(3, 'tbsp'))->toBe([
+            'quantity' => 3.0,
+            'unit' => 'tbsp',
+        ]);
+    });
+
+    it('prefers pounds over ounces for larger weight totals', closure: function () {
+        expect(UnitConverter::chooseDisplayUnit(32, 'oz'))->toBe([
+            'quantity' => 2.0,
+            'unit' => 'lb',
+        ]);
+    });
+
+    it('keeps fractional teaspoon amounts in teaspoons', closure: function () {
+        expect(UnitConverter::chooseDisplayUnit(0.5, 'tsp'))->toBe([
+            'quantity' => 0.5,
+            'unit' => 'tsp',
+        ]);
+    });
+});

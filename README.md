@@ -9,6 +9,7 @@
 - [x] Allow a user to click anywhere on the recipe card
 - [x] Add recipe search
 - [x] Fix production image uploads
+- [x] Finish grocery list correctness
 
 ### In Progress
 
@@ -16,14 +17,6 @@
   - Deduplicate ingredients by normalized name.
   - Decide how strict normalization should be for variants such as "tomato", "tomatoes", and "cherry tomatoes".
   - Keep enough original text to preserve recipe readability.
-
-- [ ] Finish grocery list correctness
-  - [x] Extract grocery aggregation out of the controller.
-  - [x] Convert compatible units before summing quantities.
-  - [x] Group incompatible units separately instead of silently combining them.
-  - [x] Handle duplicate recipes in a meal plan.
-  - [x] Add feature tests for grocery list aggregation.
-  - [ ] Choose display units deliberately instead of using the first unit encountered.
 
 - [ ] Finish ingredient unit support
   - Current ingredient unit models, migrations, UI, and converter exist.

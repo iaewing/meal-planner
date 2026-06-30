@@ -36,6 +36,7 @@ class GroceryListService
                     'name' => $first->name,
                     'total_quantity' => $quantity,
                     'unit' => $unit,
+                    'source_units' => [$unit],
                 ]);
 
                 continue;
@@ -43,11 +44,25 @@ class GroceryListService
 
             $group = $groups->get($matchingGroupKey);
             $group['total_quantity'] += $this->convertQuantity($quantity, $unit, $group['unit'], $first->name);
+            $group['source_units'][] = $unit;
             $groups->put($matchingGroupKey, $group);
         }
 
-        return $groups->map(function (array $group) {
-            $group['total_quantity'] = round($group['total_quantity'], 2);
+        return $groups->map(function (array $group) use ($first) {
+            if (count(array_unique($group['source_units'])) > 1) {
+                $display = UnitConverter::chooseDisplayUnit(
+                    $group['total_quantity'],
+                    $group['unit'],
+                    $first->name,
+                );
+
+                $group['total_quantity'] = $display['quantity'];
+                $group['unit'] = $display['unit'];
+            } else {
+                $group['total_quantity'] = round($group['total_quantity'], 2);
+            }
+
+            unset($group['source_units']);
 
             return $group;
         });

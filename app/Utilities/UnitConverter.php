@@ -26,6 +26,10 @@ class UnitConverter
         'lb' => 453.59,
     ];
 
+    const VOLUME_DISPLAY_UNITS = ['cup', 'tbsp', 'tsp'];
+
+    const WEIGHT_DISPLAY_UNITS = ['kg', 'lb', 'oz', 'g'];
+
     // For units like "slices", "pieces", "heads" that don't have standard conversions
     const CUSTOM_CONVERSIONS = [
         // Example for common ingredients - this would need to be expanded
@@ -122,5 +126,82 @@ class UnitConverter
 
         // Convert from $fromUnit to $toUnit using the custom conversions
         return round($conversions[$fromUnit] / $conversions[$toUnit], 3);
+    }
+
+    /**
+     * @return array{quantity: float, unit: string}
+     */
+    public static function chooseDisplayUnit(float $quantity, string $unit, ?string $ingredientName = null): array
+    {
+        $unit = strtolower($unit);
+
+        if ($ingredientName) {
+            $ingredientKey = strtolower(str_replace(' ', '_', $ingredientName));
+
+            if (isset(self::CUSTOM_CONVERSIONS[$ingredientKey])) {
+                $conversions = self::CUSTOM_CONVERSIONS[$ingredientKey];
+
+                return self::chooseFromOrderedUnits(
+                    $quantity,
+                    $unit,
+                    self::displayUnitsFromConversions($conversions),
+                    fn (float $qty, string $from, string $to) => $qty * $conversions[$from] / $conversions[$to],
+                );
+            }
+        }
+
+        if (isset(self::VOLUME_CONVERSIONS[$unit])) {
+            return self::chooseFromOrderedUnits(
+                $quantity,
+                $unit,
+                self::VOLUME_DISPLAY_UNITS,
+                fn (float $qty, string $from, string $to) => $qty * self::VOLUME_CONVERSIONS[$from] / self::VOLUME_CONVERSIONS[$to],
+            );
+        }
+
+        if (isset(self::WEIGHT_CONVERSIONS[$unit])) {
+            return self::chooseFromOrderedUnits(
+                $quantity,
+                $unit,
+                self::WEIGHT_DISPLAY_UNITS,
+                fn (float $qty, string $from, string $to) => $qty * self::WEIGHT_CONVERSIONS[$from] / self::WEIGHT_CONVERSIONS[$to],
+            );
+        }
+
+        return ['quantity' => round($quantity, 2), 'unit' => $unit];
+    }
+
+    /**
+     * @param  list<string>  $orderedDisplayUnits
+     * @param  callable(float, string, string): float  $convert
+     * @return array{quantity: float, unit: string}
+     */
+    private static function chooseFromOrderedUnits(
+        float $quantity,
+        string $unit,
+        array $orderedDisplayUnits,
+        callable $convert,
+    ): array {
+        foreach ($orderedDisplayUnits as $displayUnit) {
+            $displayQuantity = $convert($quantity, $unit, $displayUnit);
+
+            if ($displayQuantity >= 1) {
+                return ['quantity' => round($displayQuantity, 2), 'unit' => $displayUnit];
+            }
+        }
+
+        return ['quantity' => round($quantity, 2), 'unit' => $unit];
+    }
+
+    /**
+     * @param  array<string, float>  $conversions
+     * @return list<string>
+     */
+    private static function displayUnitsFromConversions(array $conversions): array
+    {
+        $ordered = $conversions;
+        arsort($ordered);
+
+        return array_keys($ordered);
     }
 }

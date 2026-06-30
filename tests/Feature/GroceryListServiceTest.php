@@ -64,6 +64,27 @@ it('keeps incompatible units separate', function () {
         ->and($ingredients->pluck('total_quantity')->all())->toBe([1.0, 200.0]);
 });
 
+it('chooses a readable display unit instead of the first unit encountered', function () {
+    $user = User::factory()->create();
+    $ingredient = Ingredient::factory()->create(['name' => 'flour']);
+    $tablespoonRecipe = createRecipeWithIngredient($user, $ingredient, 3, 'tbsp');
+    $cupRecipe = createRecipeWithIngredient($user, $ingredient, 1, 'cup');
+    $mealPlan = createMealPlan($user);
+
+    $mealPlan->recipes()->attach($tablespoonRecipe, ['planned_date' => '2026-06-25', 'meal_type' => 'dinner']);
+    $mealPlan->recipes()->attach($cupRecipe, ['planned_date' => '2026-06-26', 'meal_type' => 'dinner']);
+
+    $ingredients = app(GroceryListService::class)->ingredientsFor($mealPlan);
+
+    expect($ingredients)->toHaveCount(1)
+        ->and($ingredients->first())->toMatchArray([
+            'id' => $ingredient->id,
+            'name' => 'flour',
+            'total_quantity' => 1.19,
+            'unit' => 'cup',
+        ]);
+});
+
 function createMealPlan(User $user): MealPlan
 {
     return MealPlan::create([

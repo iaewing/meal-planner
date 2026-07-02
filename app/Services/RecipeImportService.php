@@ -400,12 +400,11 @@ class RecipeImportService
             ->filter()
             ->values();
 
-        $text = $imagePaths
+        $sideTexts = $imagePaths
             ->map(fn (string $imagePath) => (new TesseractOCR($imagePath))->run())
-            ->implode("\n\n");
+            ->all();
 
-        // Split text into sections
-        $sections = $this->parseOcrText($text);
+        $sections = $this->parseOcrTextFromSides($sideTexts);
         $firstImagePath = $imagePaths->first();
 
         $recipe = Recipe::create([
@@ -441,6 +440,38 @@ class RecipeImportService
         return $recipe;
     }
 
+    protected function parseOcrTextFromSides(array $sideTexts): array
+    {
+        $merged = [
+            'title' => '',
+            'ingredients' => [],
+            'instructions' => [],
+        ];
+
+        foreach ($sideTexts as $sideText) {
+            $sideText = trim($sideText);
+
+            if ($sideText === '') {
+                continue;
+            }
+
+            $parsed = $this->parseOcrText($sideText);
+
+            if ($merged['title'] === '' && trim($parsed['title']) !== '') {
+                $merged['title'] = trim($parsed['title']);
+            }
+
+            $merged['ingredients'] = array_merge($merged['ingredients'], $parsed['ingredients']);
+            $merged['instructions'] = array_merge($merged['instructions'], $parsed['instructions']);
+        }
+
+        if ($merged['title'] === '') {
+            $merged['title'] = 'Imported Recipe';
+        }
+
+        return $merged;
+    }
+
     protected function parseOcrText(string $text): array
     {
         $lines = explode("\n", $text);
@@ -450,35 +481,77 @@ class RecipeImportService
             'instructions' => [],
         ];
 
-        $currentSection = 'title';
-        $sections['title'] = $lines[0];
+        $firstLine = trim($lines[0] ?? '');
 
-        foreach ($lines as $line) {
+        if ($this->looksLikeInstructionStep($firstLine)) {
+            $currentSection = 'instructions';
+            $sections['instructions'][] = $this->stripInstructionPrefix($firstLine);
+        } elseif ($this->looksLikeIngredient($firstLine)) {
+            $currentSection = 'ingredients';
+            $sections['ingredients'][] = $firstLine;
+        } else {
+            $currentSection = 'title';
+            $sections['title'] = $firstLine;
+        }
+
+        foreach ($lines as $index => $line) {
+            if ($index === 0) {
+                continue;
+            }
+
             $line = trim($line);
             if (empty($line)) {
                 continue;
             }
 
-            if (preg_match('/ingredients/i', $line)) {
+            if (preg_match('/^ingredients\b/i', $line)) {
                 $currentSection = 'ingredients';
 
                 continue;
             }
 
-            if (preg_match('/instructions|directions|method/i', $line)) {
+            if (preg_match('/^(instructions|directions|method)\b/i', $line)) {
                 $currentSection = 'instructions';
 
                 continue;
             }
 
+            if ($this->looksLikeInstructionStep($line)) {
+                $currentSection = 'instructions';
+                $sections['instructions'][] = $this->stripInstructionPrefix($line);
+
+                continue;
+            }
+
+            if ($currentSection === 'title' && $this->looksLikeIngredient($line)) {
+                $currentSection = 'ingredients';
+            }
+
             if ($currentSection === 'ingredients' && $this->looksLikeIngredient($line)) {
                 $sections['ingredients'][] = $line;
-            } elseif ($currentSection === 'instructions') {
+
+                continue;
+            }
+
+            if ($currentSection === 'instructions') {
                 $sections['instructions'][] = $line;
             }
         }
 
         return $sections;
+    }
+
+    protected function looksLikeInstructionStep(string $line): bool
+    {
+        return preg_match('/^\d+[\.)]\s+/', $line)
+            || preg_match('/^step\s+\d+/i', $line);
+    }
+
+    protected function stripInstructionPrefix(string $line): string
+    {
+        $line = preg_replace('/^\d+[\.)]\s+/', '', $line);
+
+        return preg_replace('/^step\s+\d+[:\.)]?\s*/i', '', $line);
     }
 
     protected function parseIngredientText(string $text): array

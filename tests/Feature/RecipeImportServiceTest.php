@@ -86,3 +86,46 @@ describe('recipe import image extraction', function () {
         Storage::disk('s3')->assertExists($recipe->images[1]->path);
     });
 });
+
+describe('recipe card ocr parsing', function () {
+    it('merges ingredients from the front and instructions from the back', function () {
+        $front = <<<'TEXT'
+Chocolate Chip Cookies
+Ingredients
+2 cups flour
+1 cup sugar
+TEXT;
+
+        $back = <<<'TEXT'
+1. Preheat oven to 350F
+2. Mix dry ingredients
+3. Bake for 12 minutes
+TEXT;
+
+        $sections = callRecipeImportServiceMethod('parseOcrTextFromSides', [$front, $back]);
+
+        expect($sections)->toMatchArray([
+            'title' => 'Chocolate Chip Cookies',
+            'ingredients' => ['2 cups flour', '1 cup sugar'],
+            'instructions' => [
+                'Preheat oven to 350F',
+                'Mix dry ingredients',
+                'Bake for 12 minutes',
+            ],
+        ]);
+    });
+
+    it('detects numbered instructions without a section header', function () {
+        $sections = callRecipeImportServiceMethod('parseOcrText', <<<'TEXT'
+Grandma's Bread
+1. Proof the yeast in warm water
+2. Knead the dough for 10 minutes
+TEXT);
+
+        expect($sections['title'])->toBe("Grandma's Bread")
+            ->and($sections['instructions'])->toBe([
+                'Proof the yeast in warm water',
+                'Knead the dough for 10 minutes',
+            ]);
+    });
+});

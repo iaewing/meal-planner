@@ -11,13 +11,7 @@
 - [x] Fix production image uploads
 - [x] Finish grocery list correctness
 - [x] Finish ingredient unit support
-
-### In Progress
-
-- [ ] Normalize ingredients
-  - Deduplicate ingredients by normalized name.
-  - Decide how strict normalization should be for variants such as "tomato", "tomatoes", and "cherry tomatoes".
-  - Keep enough original text to preserve recipe readability.
+- [x] Normalize ingredients
 
 ### Later
 

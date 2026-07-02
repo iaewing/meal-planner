@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Ingredient;
 use App\Models\Recipe;
+use App\Services\IngredientService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
@@ -19,7 +20,7 @@ class RecipeImportService
 {
     protected $client;
 
-    public function __construct()
+    public function __construct(protected IngredientService $ingredientService)
     {
         $this->client = new Client([
             'timeout' => 30,
@@ -261,16 +262,7 @@ class RecipeImportService
 
                         $parsed = $this->parseIngredientText($ingredientText);
 
-                        // Create ingredient without unit
-                        $ingredient = Ingredient::firstOrCreate(
-                            ['name' => $parsed['name']]
-                        );
-
-                        if (! $ingredient->exists) {
-                            $ingredient->save();
-                        }
-
-                        $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
+                        $this->resolveAndAttachIngredient($recipe, $parsed);
                     } catch (\Exception $e) {
                         Log::warning('Failed to process ingredient', [
                             'ingredient_text' => $ingredientText,
@@ -434,16 +426,7 @@ class RecipeImportService
         foreach ($sections['ingredients'] as $ingredientText) {
             $parsed = $this->parseIngredientText($ingredientText);
 
-            // Create ingredient without unit
-            $ingredient = Ingredient::firstOrCreate(
-                ['name' => $parsed['name']]
-            );
-
-            if (! $ingredient->exists) {
-                $ingredient->save();
-            }
-
-            $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
+            $this->resolveAndAttachIngredient($recipe, $parsed);
         }
 
         // Process steps
@@ -1036,16 +1019,7 @@ class RecipeImportService
                     foreach ($ingredientData as $ingredientText) {
                         $parsed = $this->parseIngredientText($ingredientText);
 
-                        // Create ingredient without unit
-                        $ingredient = Ingredient::firstOrCreate(
-                            ['name' => $parsed['name']]
-                        );
-
-                        if (! $ingredient->exists) {
-                            $ingredient->save();
-                        }
-
-                        $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
+                        $this->resolveAndAttachIngredient($recipe, $parsed);
 
                         Log::debug('Added ingredient from HTML source', [
                             'ingredient' => $parsed['name'],
@@ -1187,16 +1161,7 @@ class RecipeImportService
                                     continue;
                                 }
 
-                                // Create ingredient without unit
-                                $ingredient = Ingredient::firstOrCreate(
-                                    ['name' => $parsed['name']]
-                                );
-
-                                if (! $ingredient->exists) {
-                                    $ingredient->save();
-                                }
-
-                                $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
+                                $this->resolveAndAttachIngredient($recipe, $parsed);
 
                                 $ingredientsFound = true;
                                 Log::debug('Added ingredient to recipe', [
@@ -1324,16 +1289,7 @@ class RecipeImportService
                                     }
                                 }
 
-                                // Create ingredient without unit
-                                $ingredient = Ingredient::firstOrCreate(
-                                    ['name' => $parsed['name']]
-                                );
-
-                                if (! $ingredient->exists) {
-                                    $ingredient->save();
-                                }
-
-                                $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
+                                $this->resolveAndAttachIngredient($recipe, $parsed);
 
                                 $ingredientsFound = true;
                                 Log::debug('Added ingredient to recipe', [
@@ -1461,16 +1417,7 @@ class RecipeImportService
 
                             $parsed = $this->parseIngredientText($text);
 
-                            // Create ingredient without unit
-                            $ingredient = Ingredient::firstOrCreate(
-                                ['name' => $parsed['name']]
-                            );
-
-                            if (! $ingredient->exists) {
-                                $ingredient->save();
-                            }
-
-                            $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
+                            $this->resolveAndAttachIngredient($recipe, $parsed);
 
                             $ingredientsFound = true;
                             Log::debug('Added ingredient from Food Network', [
@@ -1583,16 +1530,7 @@ class RecipeImportService
                         foreach ($group['ingredients'] as $ingredientText) {
                             $parsed = $this->parseIngredientText($ingredientText);
 
-                            // Create ingredient without unit
-                            $ingredient = Ingredient::firstOrCreate(
-                                ['name' => $parsed['name']]
-                            );
-
-                            if (! $ingredient->exists) {
-                                $ingredient->save();
-                            }
-
-                            $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $parsed['notes']);
+                            $this->resolveAndAttachIngredient($recipe, $parsed);
                         }
                     }
                 }
@@ -1898,15 +1836,7 @@ class RecipeImportService
                     continue;
                 }
 
-                // Create ingredient without unit
-                $ingredient = Ingredient::firstOrCreate(
-                    ['name' => $name]
-                );
-
-                if (! $ingredient->exists) {
-                    $ingredient->save();
-                }
-
+                $ingredient = $this->ingredientService->findOrCreate($name);
                 $this->attachIngredient($recipe, $ingredient, $amount, $unit, null);
 
                 Log::debug('Added ingredient from API', [
@@ -1945,6 +1875,14 @@ class RecipeImportService
         );
 
         return $recipe;
+    }
+
+    private function resolveAndAttachIngredient(Recipe $recipe, array $parsed): void
+    {
+        $ingredient = $this->ingredientService->findOrCreate($parsed['name']);
+        $notes = $this->ingredientService->mergeNotesForDisplay($parsed['name'], $ingredient, $parsed['notes'] ?? null);
+
+        $this->attachIngredient($recipe, $ingredient, $parsed['quantity'], $parsed['unit'], $notes);
     }
 
     private function attachIngredient(Recipe $recipe, Ingredient $ingredient, $quantity, ?string $unit, ?string $notes): void

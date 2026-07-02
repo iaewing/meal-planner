@@ -6,6 +6,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use App\Models\Ingredient;
 use App\Models\IngredientUnit;
+use App\Services\IngredientNormalizer;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use App\Utilities\UnitConverter;
@@ -27,7 +28,7 @@ class IngredientController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, IngredientNormalizer $normalizer): RedirectResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -36,7 +37,8 @@ class IngredientController extends Controller
             'units.*.is_default' => 'required|boolean',
         ]);
 
-        $existingIngredient = Ingredient::query()->where('name', Str::lower($validated['name']))->first();
+        $normalizedName = $normalizer->normalize($validated['name']);
+        $existingIngredient = Ingredient::query()->where('normalized_name', $normalizedName)->first();
 
         if ($existingIngredient) {
             $defaultUnit = $existingIngredient->units()->where('is_default', true)->first();
@@ -83,7 +85,8 @@ class IngredientController extends Controller
             }
         } else {
             $newIngredient = Ingredient::create([
-                'name' => Str::lower($validated['name']),
+                'name' => $normalizer->basicNormalize($validated['name']),
+                'normalized_name' => $normalizedName,
             ]);
 
             $defaultUnitKey = array_search(true, array_column($validated['units'], 'is_default'));

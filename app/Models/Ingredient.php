@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\IngredientNormalizer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -14,8 +15,18 @@ class Ingredient extends Model
 
     protected $fillable = [
         'name',
+        'normalized_name',
         'unit',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Ingredient $ingredient) {
+            if (! $ingredient->normalized_name) {
+                $ingredient->normalized_name = app(IngredientNormalizer::class)->normalize($ingredient->name);
+            }
+        });
+    }
 
     public function recipes(): BelongsToMany
     {

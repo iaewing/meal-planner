@@ -104,6 +104,7 @@ export default function Show({auth}) {
                                 <li key={ingredient.id} className="flex items-center">
                                     <span className="capitalize mr-2">
                                         {getConvertedQuantity(ingredient, selectedUnits[ingredient.id])} {selectedUnits[ingredient.id]} {ingredient.name}
+                                        {ingredient.notes ? `, ${ingredient.notes}` : ''}
                                     </span>
                                     
                                     {ingredient.available_units && ingredient.available_units.length > 1 && (

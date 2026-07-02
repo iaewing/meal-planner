@@ -29,14 +29,17 @@ export default function Show({auth}) {
         
         const originalUnit = ingredient.available_units.find(u => u.unit === ingredient.unit);
         const targetUnit = ingredient.available_units.find(u => u.unit === selectedUnit);
-        
-        if (!originalUnit || !targetUnit) {
+        const defaultUnit = ingredient.available_units.find(u => u.is_default);
+
+        if (!originalUnit || !targetUnit || !defaultUnit) {
             return ingredient.quantity;
         }
-        
-        const defaultUnit = ingredient.available_units.find(u => u.is_default);
-        
-        if (!defaultUnit) {
+
+        if (
+            originalUnit.conversion_factor == null
+            || targetUnit.conversion_factor == null
+            || defaultUnit.conversion_factor == null
+        ) {
             return ingredient.quantity;
         }
         

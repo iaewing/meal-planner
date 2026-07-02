@@ -50,8 +50,46 @@ class UnitConverter
         ],
     ];
 
+    public static function canConvert(string $fromUnit, string $toUnit, ?string $ingredientName = null): bool
+    {
+        $fromUnit = strtolower($fromUnit);
+        $toUnit = strtolower($toUnit);
+
+        if ($fromUnit === $toUnit) {
+            return true;
+        }
+
+        if ($ingredientName) {
+            $ingredientKey = strtolower(str_replace(' ', '_', $ingredientName));
+
+            if (isset(self::CUSTOM_CONVERSIONS[$ingredientKey])) {
+                return isset(self::CUSTOM_CONVERSIONS[$ingredientKey][$fromUnit])
+                    && isset(self::CUSTOM_CONVERSIONS[$ingredientKey][$toUnit]);
+            }
+        }
+
+        if (isset(self::VOLUME_CONVERSIONS[$fromUnit]) && isset(self::VOLUME_CONVERSIONS[$toUnit])) {
+            return true;
+        }
+
+        return isset(self::WEIGHT_CONVERSIONS[$fromUnit]) && isset(self::WEIGHT_CONVERSIONS[$toUnit]);
+    }
+
+    public static function conversionFactorOrNull(string $fromUnit, string $toUnit, ?string $ingredientName = null): ?float
+    {
+        if (! self::canConvert($fromUnit, $toUnit, $ingredientName)) {
+            return null;
+        }
+
+        return self::determineConversionFactor($fromUnit, $toUnit, $ingredientName);
+    }
+
     public static function determineConversionFactor(string $fromUnit, string $toUnit, ?string $ingredientName = null): float
     {
+        if (! self::canConvert($fromUnit, $toUnit, $ingredientName)) {
+            throw new \InvalidArgumentException("Cannot convert from {$fromUnit} to {$toUnit}");
+        }
+
         $fromUnitLower = strtolower($fromUnit);
         $toUnitLower = strtolower($toUnit);
 
@@ -59,29 +97,15 @@ class UnitConverter
             $ingredientKey = strtolower(str_replace(' ', '_', $ingredientName));
 
             if (isset(self::CUSTOM_CONVERSIONS[$ingredientKey])) {
-                try {
-                    return self::getCustomConversion($fromUnitLower, $toUnitLower, $ingredientKey);
-                } catch (\InvalidArgumentException $e) {
-                    // If custom conversion fails, continue to generic conversions
-                }
+                return self::getCustomConversion($fromUnitLower, $toUnitLower, $ingredientKey);
             }
         }
-        $isFromVolume = isset(self::VOLUME_CONVERSIONS[$fromUnitLower]);
-        $isToVolume = isset(self::VOLUME_CONVERSIONS[$toUnitLower]);
 
-        if ($isFromVolume && $isToVolume) {
+        if (isset(self::VOLUME_CONVERSIONS[$fromUnitLower]) && isset(self::VOLUME_CONVERSIONS[$toUnitLower])) {
             return self::getVolumeConversion($fromUnitLower, $toUnitLower);
         }
 
-        $isFromWeight = isset(self::WEIGHT_CONVERSIONS[$fromUnitLower]);
-        $isToWeight = isset(self::WEIGHT_CONVERSIONS[$toUnitLower]);
-
-        if ($isFromWeight && $isToWeight) {
-            return self::getWeightConversion($fromUnitLower, $toUnitLower);
-        }
-
-            //TODO: Consider alternate behaviour for a bad conversion attempt
-        return 1.0;
+        return self::getWeightConversion($fromUnitLower, $toUnitLower);
     }
 
     /**

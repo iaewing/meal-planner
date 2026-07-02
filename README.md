@@ -10,6 +10,7 @@
 - [x] Add recipe search
 - [x] Fix production image uploads
 - [x] Finish grocery list correctness
+- [x] Finish ingredient unit support
 
 ### In Progress
 
@@ -17,13 +18,6 @@
   - Deduplicate ingredients by normalized name.
   - Decide how strict normalization should be for variants such as "tomato", "tomatoes", and "cherry tomatoes".
   - Keep enough original text to preserve recipe readability.
-
-- [ ] Finish ingredient unit support
-  - Current ingredient unit models, migrations, UI, and converter exist.
-  - [x] Ensure recipe ingredients created or edited in the app reference `ingredient_unit_id` when the unit is known.
-  - [x] Ensure imported recipes use the same recipe ingredient attach path.
-  - Define fallback behavior for unknown or incompatible conversions.
-  - Add controller tests for adding units and changing defaults.
 
 ### Later
 

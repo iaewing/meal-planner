@@ -17,7 +17,9 @@ class IngredientUnitFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'unit' => 'cup',
+            'is_default' => false,
+            'conversion_factor' => 1,
         ];
     }
 }

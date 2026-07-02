@@ -25,11 +25,6 @@ describe('converting ingredient units', function () {
 });
 
 describe('determining conversion factor', function () {
-    it('returns 1.0 if no conversion is found', closure: function () {
-        $conversionFactor = UnitConverter::determineConversionFactor('tsp', 'children');
-        expect($conversionFactor)->toBe(1.0);
-    });
-
     it('returns volume to volume conversion', closure: function () {
         $conversionFactor = UnitConverter::determineConversionFactor('tsp', 'tbsp');
         expect($conversionFactor)->toBe(0.333);
@@ -43,6 +38,25 @@ describe('determining conversion factor', function () {
     it('returns the correct conversion factor for custom units', closure: function () {
         $conversionFactor = UnitConverter::determineConversionFactor('slice', 'lb', 'bacon');
         expect($conversionFactor)->toBe(0.063);
+    });
+
+    it('throws when conversion is not possible', closure: function () {
+        UnitConverter::determineConversionFactor('tsp', 'children');
+    })->throws(InvalidArgumentException::class);
+});
+
+describe('conversion compatibility', function () {
+    it('returns false for unknown or incompatible units', closure: function () {
+        expect(UnitConverter::canConvert('tsp', 'children'))->toBeFalse()
+            ->and(UnitConverter::canConvert('cup', 'g'))->toBeFalse();
+    });
+
+    it('returns null instead of guessing for incompatible units', closure: function () {
+        expect(UnitConverter::conversionFactorOrNull('cup', 'slice'))->toBeNull();
+    });
+
+    it('returns a factor for compatible units', closure: function () {
+        expect(UnitConverter::conversionFactorOrNull('tsp', 'tbsp'))->toBe(0.333);
     });
 });
 

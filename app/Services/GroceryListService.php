@@ -89,7 +89,7 @@ class GroceryListService
             return false;
         }
 
-        return $this->isKnownConversion($fromUnit, $toUnit, $ingredientName);
+        return UnitConverter::canConvert($fromUnit, $toUnit, $ingredientName);
     }
 
     private function convertQuantity(float $quantity, ?string $fromUnit, ?string $toUnit, string $ingredientName): float
@@ -99,30 +99,6 @@ class GroceryListService
         }
 
         return $quantity * UnitConverter::determineConversionFactor($fromUnit, $toUnit, $ingredientName);
-    }
-
-    private function isKnownConversion(string $fromUnit, string $toUnit, string $ingredientName): bool
-    {
-        $fromUnit = strtolower($fromUnit);
-        $toUnit = strtolower($toUnit);
-        $ingredientKey = strtolower(str_replace(' ', '_', $ingredientName));
-
-        if (
-            isset(UnitConverter::CUSTOM_CONVERSIONS[$ingredientKey][$fromUnit])
-            && isset(UnitConverter::CUSTOM_CONVERSIONS[$ingredientKey][$toUnit])
-        ) {
-            return true;
-        }
-
-        if (
-            isset(UnitConverter::VOLUME_CONVERSIONS[$fromUnit])
-            && isset(UnitConverter::VOLUME_CONVERSIONS[$toUnit])
-        ) {
-            return true;
-        }
-
-        return isset(UnitConverter::WEIGHT_CONVERSIONS[$fromUnit])
-            && isset(UnitConverter::WEIGHT_CONVERSIONS[$toUnit]);
     }
 
     private function normalizeUnit(?string $unit): ?string

@@ -2,6 +2,7 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
+import { ToastProvider } from '@/Components/ToastProvider';
 import {Link, usePage} from '@inertiajs/react';
 import {BookOpen, CalendarDays, Home, ListChecks} from 'lucide-react';
 import {useState} from 'react';
@@ -30,6 +31,7 @@ export default function AuthenticatedLayout({header, children}) {
     ];
 
     return (
+        <ToastProvider>
         <div className="min-h-screen bg-gray-100 pb-20 sm:pb-0">
             <nav className="border-b border-gray-100 bg-white">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -247,5 +249,6 @@ export default function AuthenticatedLayout({header, children}) {
                 </div>
             </nav>
         </div>
+        </ToastProvider>
     );
 }

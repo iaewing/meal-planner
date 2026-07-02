@@ -187,6 +187,19 @@ class RecipeController extends Controller
             ->with('success', 'Recipe deleted successfully.');
     }
 
+    public function updateRating(Request $request, Recipe $recipe)
+    {
+        Gate::authorize('update', $recipe);
+
+        $validated = $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+        ]);
+
+        $recipe->update(['rating' => $validated['rating']]);
+
+        return back();
+    }
+
     public function importForm()
     {
         return Inertia::render('Recipes/Import');

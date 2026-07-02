@@ -42,6 +42,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/recipes/import/image', [RecipeController::class, 'importImage'])->name('recipes.import-image');
 
     Route::resource('recipes', RecipeController::class);
+    Route::patch('/recipes/{recipe}/rating', [RecipeController::class, 'updateRating'])
+        ->name('recipes.update-rating');
     
     Route::resource('meal-plans', MealPlanController::class)->names([
         'index' => 'meal-plans.index',

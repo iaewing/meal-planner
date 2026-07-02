@@ -286,6 +286,47 @@ describe('importing recipes', function () {
     });
 });
 
+describe('rating recipes', function () {
+    it('stores a rating for the recipe owner', closure: function () {
+        $user = User::factory()->create();
+        $recipe = Recipe::create([
+            'user_id' => $user->id,
+            'name' => 'Rated dish',
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('recipes.update-rating', $recipe), ['rating' => 4])
+            ->assertRedirect();
+
+        expect($recipe->fresh()->rating)->toBe(4);
+    });
+
+    it('rejects invalid ratings', closure: function () {
+        $user = User::factory()->create();
+        $recipe = Recipe::create([
+            'user_id' => $user->id,
+            'name' => 'Rated dish',
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('recipes.update-rating', $recipe), ['rating' => 6])
+            ->assertSessionHasErrors('rating');
+    });
+
+    it('prevents rating another users recipe', closure: function () {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $recipe = Recipe::create([
+            'user_id' => $owner->id,
+            'name' => 'Rated dish',
+        ]);
+
+        $this->actingAs($otherUser)
+            ->patch(route('recipes.update-rating', $recipe), ['rating' => 5])
+            ->assertForbidden();
+    });
+});
+
 function createRecipePayload(
     $name = 'Cheese!',
     $description = 'Great for food',

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, router } from '@inertiajs/react';
 import debounce from 'lodash/debounce';
+import RecipeRating from '@/Components/RecipeRating';
 
 const RecipeList = ({ recipes, filters = {} }) => {
     // Destructure the data from the pagination object
@@ -114,6 +115,12 @@ const RecipeList = ({ recipes, filters = {} }) => {
 
                             <div className="p-4">
                                 <h2 className="text-xl font-semibold mb-2">{recipe.name}</h2>
+
+                                {recipe.rating && (
+                                    <div className="mb-2">
+                                        <RecipeRating rating={recipe.rating} readOnly size="sm" />
+                                    </div>
+                                )}
 
                                 <div className="text-sm text-gray-600 mb-2">
                                     {recipe.description || 'No description available'}

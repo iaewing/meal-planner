@@ -61,7 +61,7 @@ it('keeps incompatible units separate', function () {
 
     expect($ingredients)->toHaveCount(2)
         ->and($ingredients->pluck('unit')->all())->toBe(['cup', 'g'])
-        ->and($ingredients->pluck('total_quantity')->all())->toBe([1.0, 200.0]);
+        ->and($ingredients->pluck('total_quantity')->all())->toBe([1, 200]);
 });
 
 it('chooses a readable display unit instead of the first unit encountered', function () {

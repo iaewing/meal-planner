@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {Head, usePage, Link, router} from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import RecipeRating from '@/Components/RecipeRating';
+import { formatQuantity } from '@/utils/formatQuantity';
 
 export default function Show({auth}) {
     const {recipe} = usePage().props
@@ -47,7 +48,7 @@ export default function Show({auth}) {
         const valueInDefaultUnit = ingredient.quantity * (originalUnit.conversion_factor / defaultUnit.conversion_factor);
         const convertedValue = valueInDefaultUnit * (defaultUnit.conversion_factor / targetUnit.conversion_factor);
         
-        return parseFloat(convertedValue).toFixed(2);
+        return formatQuantity(convertedValue);
     };
 
     const handleRatingChange = (rating) => {
@@ -113,7 +114,7 @@ export default function Show({auth}) {
                             {recipe.ingredients.map((ingredient) => (
                                 <li key={ingredient.id} className="flex items-center">
                                     <span className="capitalize mr-2">
-                                        {getConvertedQuantity(ingredient, selectedUnits[ingredient.id])} {selectedUnits[ingredient.id]} {ingredient.name}
+                                        {formatQuantity(getConvertedQuantity(ingredient, selectedUnits[ingredient.id]))} {selectedUnits[ingredient.id]} {ingredient.name}
                                         {ingredient.notes ? `, ${ingredient.notes}` : ''}
                                     </span>
                                     

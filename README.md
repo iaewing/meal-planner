@@ -16,6 +16,4 @@
 - [x] Add recipe rating system
 - [x] Investigate Instagram import
 - [x] Add toast for when a recipe upload/import completes
-
-### Later
-- [ ] Intelligently display ingredient quantities. Current `8.00 Tablespoons Unsalted Butter` can and should be displayed to the user as `8 Tablespoons Unsalted Butter`
+- [x] Intelligently display ingredient quantities. Current `8.00 Tablespoons Unsalted Butter` can and should be displayed to the user as `8 Tablespoons Unsalted Butter`

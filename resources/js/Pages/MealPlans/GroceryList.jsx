@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { RotateCcw } from 'lucide-react';
+import { formatQuantity } from '@/utils/formatQuantity';
 
 export default function GroceryList({ auth, mealPlan, ingredients }) {
     const [checkedItems, setCheckedItems] = useState({});
@@ -51,7 +52,7 @@ export default function GroceryList({ auth, mealPlan, ingredients }) {
                                                     className="h-6 w-6 rounded text-blue-600"
                                                 />
                                                 <span className={`text-base ${checkedItems[ingredient.id] ? 'line-through' : ''}`}>
-                                                    {ingredient.total_quantity} {ingredient.unit} {ingredient.name}
+                                                    {formatQuantity(ingredient.total_quantity)} {ingredient.unit} {ingredient.name}
                                                 </span>
                                             </div>
                                         ))}

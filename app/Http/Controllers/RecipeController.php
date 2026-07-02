@@ -6,6 +6,7 @@ use App\Http\Requests\CreateRecipeRequest;
 use App\Jobs\ImportRecipeFromUrl;
 use App\Models\Ingredient;
 use App\Models\Recipe;
+use App\Support\QuantityFormatter;
 use App\Services\RecipeIngredientService;
 use App\Services\RecipeImportService;
 use Illuminate\Http\Request;
@@ -87,7 +88,7 @@ class RecipeController extends Controller
             return [
                 'id' => $ingredient->id,
                 'name' => $ingredient->name,
-                'quantity' => $pivotData->quantity,
+                'quantity' => QuantityFormatter::format((float) $pivotData->quantity),
                 'unit' => $pivotData->unit,
                 'notes' => $pivotData->notes,
                 'available_units' => $ingredient->units->map(function ($unit) {

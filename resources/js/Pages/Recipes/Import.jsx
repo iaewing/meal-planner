@@ -120,7 +120,7 @@ export default function Import({ auth, flash }) {
                         <div className="overflow-hidden bg-white p-4 shadow-xl sm:rounded-lg sm:p-6">
                             <h3 className="text-lg font-medium text-gray-900">Import from URL</h3>
                             <p className="mt-1 text-sm text-gray-600">
-                                Enter the URL of a recipe from a supported website.
+                                Enter the URL of a recipe from a supported website. Instagram post and reel URLs are supported when the caption is publicly available.
                             </p>
 
                             {error && (

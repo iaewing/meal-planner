@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\MealPlan;
+use App\Support\QuantityFormatter;
 use App\Utilities\UnitConverter;
 use Illuminate\Support\Collection;
 
@@ -56,10 +57,10 @@ class GroceryListService
                     $first->name,
                 );
 
-                $group['total_quantity'] = $display['quantity'];
+                $group['total_quantity'] = QuantityFormatter::format($display['quantity']);
                 $group['unit'] = $display['unit'];
             } else {
-                $group['total_quantity'] = round($group['total_quantity'], 2);
+                $group['total_quantity'] = QuantityFormatter::format($group['total_quantity']);
             }
 
             unset($group['source_units']);

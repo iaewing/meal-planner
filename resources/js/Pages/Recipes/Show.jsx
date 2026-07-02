@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import {Head, usePage, Link} from '@inertiajs/react';
+import {Head, usePage, Link, router} from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import RecipeRating from '@/Components/RecipeRating';
 
 export default function Show({auth}) {
     const {recipe} = usePage().props
@@ -49,6 +50,12 @@ export default function Show({auth}) {
         return parseFloat(convertedValue).toFixed(2);
     };
 
+    const handleRatingChange = (rating) => {
+        router.patch(route('recipes.update-rating', recipe.id), { rating }, {
+            preserveScroll: true,
+        });
+    };
+
     return (
         <AuthenticatedLayout user={auth.user}>
             <Head title={recipe.name}/>
@@ -67,6 +74,9 @@ export default function Show({auth}) {
                         {recipe.description && (
                             <p className="mt-2 text-gray-600">{recipe.description}</p>
                         )}
+                        <div className="mt-3">
+                            <RecipeRating rating={recipe.rating} onRate={handleRatingChange} />
+                        </div>
                         {recipe.source_url && (
                             <div className="mt-2">
                                 <span className="text-gray-600">Source: </span>

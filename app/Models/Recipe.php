@@ -22,10 +22,12 @@ class Recipe extends Model
         'source_url',
         'image_path',
         'servings',
+        'rating',
     ];
 
     protected $casts = [
         'nutrition' => 'array',
+        'rating' => 'integer',
     ];
 
     protected $appends = ['image_url'];

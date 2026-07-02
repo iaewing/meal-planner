@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Ingredient;
 use App\Models\Recipe;
+use App\Exceptions\InstagramImportException;
 use App\Services\IngredientService;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Uri;
@@ -20,8 +21,10 @@ class RecipeImportService
 {
     protected $client;
 
-    public function __construct(protected IngredientService $ingredientService)
-    {
+    public function __construct(
+        protected IngredientService $ingredientService,
+        protected InstagramImportService $instagramImportService,
+    ) {
         $this->client = new Client([
             'timeout' => 30,
             'verify' => false,
@@ -51,6 +54,10 @@ class RecipeImportService
     {
         try {
             Log::debug('Starting recipe import from URL', ['url' => $url]);
+
+            if ($this->instagramImportService->supports($url)) {
+                return $this->importFromInstagram($url, $userId);
+            }
 
             // For Food Network URLs, try using a recipe API first
             if (str_contains($url, 'foodnetwork.com')) {
@@ -168,6 +175,44 @@ class RecipeImportService
             ]);
             throw $e;
         }
+    }
+
+    protected function importFromInstagram(string $url, int $userId): Recipe
+    {
+        $html = $this->fetchPageHtml($url);
+
+        $caption = $this->instagramImportService->extractCaptionFromHtml($html);
+
+        if (! $caption) {
+            throw InstagramImportException::captionUnavailable();
+        }
+
+        $sections = $this->instagramImportService->parseCaption($caption, $this);
+
+        $recipe = Recipe::create([
+            'user_id' => $userId,
+            'name' => $sections['title'],
+            'description' => 'Imported from Instagram',
+            'source_url' => $url,
+        ]);
+
+        foreach ($sections['ingredients'] as $ingredientText) {
+            $this->resolveAndAttachIngredient($recipe, $this->parseIngredientText($ingredientText));
+        }
+
+        foreach ($sections['instructions'] as $index => $instruction) {
+            $recipe->steps()->create([
+                'instruction' => $instruction,
+                'order' => $index + 1,
+            ]);
+        }
+
+        return $recipe;
+    }
+
+    protected function fetchPageHtml(string $url): string
+    {
+        return (string) $this->client->get($url)->getBody();
     }
 
     protected function parseJsonLd(Crawler $crawler, string $url, int $userId): Recipe

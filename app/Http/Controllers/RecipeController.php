@@ -209,16 +209,34 @@ class RecipeController extends Controller
     public function importImage(Request $request)
     {
         $request->validate([
-            'image' => 'nullable|required_without:images|image|max:5120', // 5MB max
-            'images' => 'nullable|required_without:image|array|min:1',
+            'front_image' => 'nullable|image|max:5120',
+            'back_image' => 'nullable|image|max:5120',
+            'image' => 'nullable|image|max:5120',
+            'images' => 'nullable|array|min:1|max:2',
             'images.*' => 'image|max:5120',
         ]);
 
         try {
-            $images = collect($request->file('images', []));
+            $images = collect();
 
-            if ($request->hasFile('image')) {
-                $images->prepend($request->file('image'));
+            if ($request->hasFile('front_image')) {
+                $images->push($request->file('front_image'));
+            }
+
+            if ($request->hasFile('back_image')) {
+                $images->push($request->file('back_image'));
+            }
+
+            if ($images->isEmpty()) {
+                $images = collect($request->file('images', []));
+
+                if ($request->hasFile('image')) {
+                    $images->prepend($request->file('image'));
+                }
+            }
+
+            if ($images->isEmpty()) {
+                return back()->withErrors(['images' => 'Please upload at least one recipe image.']);
             }
 
             $fullPaths = $images

@@ -12,10 +12,9 @@
 - [x] Finish grocery list correctness
 - [x] Finish ingredient unit support
 - [x] Normalize ingredients
+- [x] Allow users to create a recipe from images of a double-sided recipe card
 
 ### Later
-
-- [ ] Allow users to create a recipe from images of a double-sided recipe card
 - [ ] Add recipe rating system
 - [ ] Investigate Instagram import
 - [ ] Add toast for when a recipe upload/import completes

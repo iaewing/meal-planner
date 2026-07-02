@@ -256,7 +256,7 @@ describe('importing recipes', function () {
         });
     });
 
-    it('imports recipes from multiple uploaded images', closure: function () {
+    it('imports recipes from front and back recipe card images', closure: function () {
         Storage::fake('public');
 
         $user = User::factory()->create();
@@ -279,10 +279,8 @@ describe('importing recipes', function () {
 
         $this->actingAs($user)
             ->post(route('recipes.import-image'), [
-                'images' => [
-                    UploadedFile::fake()->image('front.jpg'),
-                    UploadedFile::fake()->image('back.jpg'),
-                ],
+                'front_image' => UploadedFile::fake()->image('front.jpg'),
+                'back_image' => UploadedFile::fake()->image('back.jpg'),
             ])
             ->assertRedirect(route('recipes.edit', $recipe));
     });

@@ -86,12 +86,16 @@ class UnitConverter
 
     public static function determineConversionFactor(string $fromUnit, string $toUnit, ?string $ingredientName = null): float
     {
+        $fromUnitLower = strtolower($fromUnit);
+        $toUnitLower = strtolower($toUnit);
+
+        if ($fromUnitLower === $toUnitLower) {
+            return 1.0;
+        }
+
         if (! self::canConvert($fromUnit, $toUnit, $ingredientName)) {
             throw new \InvalidArgumentException("Cannot convert from {$fromUnit} to {$toUnit}");
         }
-
-        $fromUnitLower = strtolower($fromUnit);
-        $toUnitLower = strtolower($toUnit);
 
         if ($ingredientName) {
             $ingredientKey = strtolower(str_replace(' ', '_', $ingredientName));

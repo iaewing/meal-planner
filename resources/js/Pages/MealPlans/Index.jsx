@@ -4,7 +4,13 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { format } from 'date-fns';
 import { Plus, Shuffle } from 'lucide-react';
 
-export default function Index({ auth, mealPlans }) {
+export default function Index({ auth, mealPlans, previousMealPlans }) {
+    const [previousPlansVisible, setPreviousPlansVisible] = React.useState(false);
+
+    function handlePreviousMealsClick() {
+        setPreviousPlansVisible(!previousPlansVisible);
+    }
+
     return (
         <AuthenticatedLayout user={auth.user}>
             <Head title="Meal Plans" />
@@ -33,9 +39,9 @@ export default function Index({ auth, mealPlans }) {
 
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-4 sm:p-6">
-                            {mealPlans.data.length > 0 ? (
+                            {mealPlans?.length > 0 ? (
                                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                    {mealPlans.data.map((mealPlan) => (
+                                    {mealPlans.map((mealPlan) => (
                                         <div
                                             key={mealPlan.id}
                                             className="rounded-lg border p-4 transition-shadow hover:shadow-lg"
@@ -61,7 +67,37 @@ export default function Index({ auth, mealPlans }) {
                                 </div>
                             )}
                         </div>
+
+                        <div className="p-4 sm:p-6">
+                            <div onClick={handlePreviousMealsClick} className="text-lg font-semibold sm:text-xl">
+                                Previous Meal Plans <span className="font-bold text-2xl">{previousPlansVisible ? '-' : '+'}</span>
+                            </div>
+                            {(previousMealPlans?.length > 0 && previousPlansVisible) && (
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                    {previousMealPlans.map((mealPlan) => (
+                                        <div
+                                            key={mealPlan.id}
+                                            className="rounded-lg border p-4 transition-shadow hover:shadow-lg"
+                                        >
+                                            <Link href={route('meal-plans.show', mealPlan.id)}>
+                                                <h3 className="mb-2 text-lg font-semibold sm:text-xl">{mealPlan.name}</h3>
+                                                <div className="text-gray-600">
+                                                    <p>
+                                                        {format(new Date(mealPlan.start_date), 'MMM d, yyyy')} -{' '}
+                                                        {format(new Date(mealPlan.end_date), 'MMM d, yyyy')}
+                                                    </p>
+                                                    <p className="mt-2">
+                                                        {mealPlan.recipes.length} {mealPlan.recipes.length === 1 ? 'recipe' : 'recipes'}
+                                                    </p>
+                                                </div>
+                                            </Link>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
+
                 </div>
             </div>
         </AuthenticatedLayout>

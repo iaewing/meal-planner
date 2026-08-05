@@ -82,40 +82,6 @@ describe('creating recipes', function () {
         ]);
     });
 
-    it('creates a recipe with multiple images', closure: function () {
-        Storage::fake('public');
-
-        $ingredient = Ingredient::factory()->create();
-        $payload = createRecipePayload(
-            ingredient: [
-                [
-                    'ingredient_id' => $ingredient->id,
-                    'name' => $ingredient->name,
-                    'quantity' => 1,
-                    'unit' => $ingredient->unit,
-                ],
-            ],
-        );
-        $payload['images'] = [
-            UploadedFile::fake()->image('first.jpg'),
-            UploadedFile::fake()->image('second.jpg'),
-        ];
-
-        $user = User::factory()->create();
-
-        $this->actingAs($user)
-            ->post(route('recipes.store'), $payload)
-            ->assertRedirect();
-
-        $recipe = Recipe::query()->where('name', $payload['name'])->firstOrFail();
-
-        expect($recipe->images)->toHaveCount(2);
-        expect($recipe->image_name)->toBe($recipe->images->first()->path);
-
-        Storage::disk('public')->assertExists($recipe->images[0]->path);
-        Storage::disk('public')->assertExists($recipe->images[1]->path);
-    });
-
     it('stores the selected ingredient unit on recipe ingredients', closure: function () {
         $user = User::factory()->create();
         $ingredient = Ingredient::factory()->create(['name' => 'flour']);

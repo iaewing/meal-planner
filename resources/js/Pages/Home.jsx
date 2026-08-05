@@ -81,20 +81,24 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                 <h2 className="text-xl font-semibold mb-4">Today's Meals</h2>
                                 {activeMealPlan ? (
                                     <>
-                                        <div className="mb-4">
-                                            <h3 className="text-lg font-medium">
-                                                {activeMealPlan.name}
-                                            </h3>
-                                            <p className="text-sm text-gray-500">
-                                                {formatDate(new Date().toISOString())}
-                                            </p>
-                                        </div>
+                                        <Link
+                                            key={activeMealPlan.id}
+                                            href={`/meal-plans/${activeMealPlan.id}`}
+                                        >
+                                            <div className="mb-4">
+                                                <h3 className="text-lg font-medium">
+                                                    {activeMealPlan.name}
+                                                </h3>
+                                                <p className="text-sm text-gray-500">
+                                                    {formatDate(new Date().toISOString())}
+                                                </p>
+                                            </div>
+                                        </Link>
                                         {activeMealPlan.recipes.length > 0 ? (
                                             <div className="space-y-4">
                                                 {activeMealPlan.recipes.map(recipe => (
                                                     <Link
-                                                        key={`${recipe.id}-${recipe.pivot.meal_type}`}
-                                                        href={`/recipes/${recipe.id}`}
+
                                                         className="block p-4 border rounded-lg hover:bg-gray-50"
                                                     >
                                                         <div className="flex items-center justify-between gap-3">

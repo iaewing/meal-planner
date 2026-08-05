@@ -24,7 +24,8 @@ class MealPlanController extends Controller
             ->paginate(10);
 
         return Inertia::render('MealPlans/Index', [
-            'mealPlans' => $mealPlans
+            'mealPlans' => $mealPlans->filter(fn($mealPlan) => $mealPlan->start_date->gte(Carbon::now()->startOfWeek()))->values(),
+            'previousMealPlans' => $mealPlans->filter(fn($mealPlan) => $mealPlan->start_date->lt(Carbon::now()->startOfWeek()))->values()
         ]);
     }
 

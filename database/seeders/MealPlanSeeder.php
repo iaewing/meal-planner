@@ -10,31 +10,40 @@ use Illuminate\Support\Carbon;
 
 class MealPlanSeeder extends Seeder
 {
+    public User $User;
+
     public function run(): void
     {
-        $user = User::query()->where('email', 'test@example.com')->first();
+        $this->user = User::query()->where('email', 'test@example.com')->first();
 
-        if (! $user) {
+        if (! $this->user) {
             return;
         }
 
+        $this->createWeek();
+        $this->createWeek(Carbon::today()->subWeek(), Carbon::today()->subWeeks(2));
+    }
+
+    private function createWeek($startDate = null, $endDate = null): void {
+        if (! $startDate) {
+            $startDate = Carbon::today()->startOfWeek();
+        }
+        if (! $endDate) {
+            $endDate = Carbon::today()->endOfWeek();
+        }
+
         $recipesByName = Recipe::query()
-            ->where('user_id', $user->id)
+            ->where('user_id', $this->user->id)
             ->pluck('id', 'name');
 
         if ($recipesByName->isEmpty()) {
             return;
         }
 
-        $startDate = Carbon::today()->startOfWeek();
-        $endDate = Carbon::today()->endOfWeek();
-
-        $mealPlan = MealPlan::query()->updateOrCreate(
+        $mealPlan = MealPlan::query()->create(
             [
-                'user_id' => $user->id,
-                'name' => 'This Week',
-            ],
-            [
+                'user_id' => $this->user->id,
+                'name' => $startDate->toDateString(),
                 'start_date' => $startDate,
                 'end_date' => $endDate,
             ]

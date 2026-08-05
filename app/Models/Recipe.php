@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\NutritionCalculationService;
 use App\Services\RecipeScalingService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -31,6 +32,12 @@ class Recipe extends Model
     ];
 
     protected $appends = ['image_url'];
+
+    protected function imageName(): Attribute {
+        return Attribute::make(
+            get: fn (?string $value) => Storage::disk('recipe-images')->url($value),
+        );
+    }
 
     public function getImageUrlAttribute(): ?string
     {

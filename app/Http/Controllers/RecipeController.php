@@ -12,6 +12,7 @@ use App\Services\RecipeImportService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class RecipeController extends Controller
@@ -101,6 +102,7 @@ class RecipeController extends Controller
             ];
         }));
 
+        $recipe['image_name'] = Storage::disk('recipe-images')->url($recipe->image_name);
         return Inertia::render('Recipes/Show', [
             'recipe' => $recipe,
         ]);
@@ -301,8 +303,8 @@ class RecipeController extends Controller
                     'sort_order' => $nextSortOrder + $index,
                 ]);
 
-                if (! $recipe->image_path) {
-                    $recipe->update(['image_path' => $path]);
+                if (! $recipe->image_name) {
+                    $recipe->update(['image_name' => $path]);
                 }
             });
     }

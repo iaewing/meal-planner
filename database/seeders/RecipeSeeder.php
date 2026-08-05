@@ -117,6 +117,7 @@ class RecipeSeeder extends Seeder
                     'Grill over medium-high heat until cooked through.',
                     'Rest for 5 minutes before slicing.',
                 ],
+                'image_name' => 'lemon-butter-chicken.jpg',
             ],
             [
                 'name' => 'Garlic Butter Pasta',
@@ -134,6 +135,7 @@ class RecipeSeeder extends Seeder
                     'Saute garlic in olive oil and butter until fragrant.',
                     'Stir in flour, then loosen with pasta water and toss with cooked pasta.',
                 ],
+                'image_name' => 'garlic-butter-pasta.jpg',
             ],
             [
                 'name' => 'Overnight Oats',
@@ -150,6 +152,7 @@ class RecipeSeeder extends Seeder
                     'Refrigerate overnight.',
                     'Stir and serve cold or warmed.',
                 ],
+                'image_name' => 'overnight-oats.jpg',
             ],
         ];
     }

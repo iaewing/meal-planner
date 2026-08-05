@@ -4,7 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { format, parseISO } from 'date-fns';
 
 export default function Home({ auth, recentRecipes, activeMealPlan }) {
-    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_path ? `/storage/${recipe.image_path}` : null);
+    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_name ? `/storage/${recipe.image_name}` : null);
 
     const formatDate = (date) => {
         try {

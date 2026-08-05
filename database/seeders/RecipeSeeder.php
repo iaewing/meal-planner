@@ -28,7 +28,7 @@ class RecipeSeeder extends Seeder
                     'description' => $definition['description'],
                     'servings' => $definition['servings'],
                     'rating' => $definition['rating'] ?? null,
-                    'image_path' => $definition['image_path'] ?? null,
+                    'image_name' => $definition['image_name'] ?? null,
                 ]
             );
 
@@ -80,7 +80,7 @@ class RecipeSeeder extends Seeder
                     'Melt butter in a nonstick pan over medium-low heat.',
                     'Add eggs and stir gently until just set.',
                 ],
-                'image_path' => Storage::disk('recipe-images')->path('scrambled-eggs.jpg')
+                'image_name' => 'scrambled-eggs.jpg',
             ],
             [
                 'name' => 'Buttermilk Pancakes',
@@ -99,7 +99,7 @@ class RecipeSeeder extends Seeder
                     'Whisk wet ingredients, then combine with dry until just mixed.',
                     'Cook on a greased griddle until bubbles form, flip, and finish cooking.',
                 ],
-                'image_path' => Storage::disk('recipe-images')->path('buttermilk-pancakes.jpg')
+                'image_name' => 'buttermilk-pancakes.jpg',
             ],
             [
                 'name' => 'Grilled Lemon Chicken',

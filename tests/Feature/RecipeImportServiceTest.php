@@ -78,7 +78,7 @@ describe('recipe import image extraction', function () {
         $recipe->refresh();
 
         expect($recipe->images)->toHaveCount(2);
-        expect($recipe->image_path)->toBe($recipe->images[0]->path);
+        expect($recipe->image_name)->toBe($recipe->images[0]->path);
         expect($recipe->images[0]->disk)->toBe('s3');
         expect($recipe->images[1]->disk)->toBe('s3');
 

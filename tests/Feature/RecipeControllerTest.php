@@ -110,7 +110,7 @@ describe('creating recipes', function () {
         $recipe = Recipe::query()->where('name', $payload['name'])->firstOrFail();
 
         expect($recipe->images)->toHaveCount(2);
-        expect($recipe->image_path)->toBe($recipe->images->first()->path);
+        expect($recipe->image_name)->toBe($recipe->images->first()->path);
 
         Storage::disk('public')->assertExists($recipe->images[0]->path);
         Storage::disk('public')->assertExists($recipe->images[1]->path);

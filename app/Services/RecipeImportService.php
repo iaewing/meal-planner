@@ -452,11 +452,12 @@ class RecipeImportService
         $sections = $this->parseOcrTextFromSides($sideTexts);
         $firstImagePath = $imagePaths->first();
 
+        // TODO: What is happening with the image parsing here?
         $recipe = Recipe::create([
             'user_id' => $userId,
             'name' => $sections['title'],
             'description' => $sections['description'] ?? null,
-            'image_path' => $firstImagePath ? str_replace(storage_path('app/public/'), '', $firstImagePath) : null,
+            'image_name' => $firstImagePath ? str_replace(storage_path('app/public/'), '', $firstImagePath) : null,
         ]);
         $imagePaths->each(function (string $imagePath, int $index) use ($recipe) {
             $recipe->images()->create([
@@ -850,9 +851,10 @@ class RecipeImportService
             $extension = $this->imageExtensionFromUrlOrContentType($imageUrl, $contentType);
             $path = "recipe-images/{$recipe->id}-".uniqid().".{$extension}";
 
+            // TODO: I think as we move to image names rather than paths; we can just store the $recipe->id-uniqid() here
             Storage::disk('s3')->put($path, $response->body());
-            if (! $recipe->image_path) {
-                $recipe->update(['image_path' => $path]);
+            if (! $recipe->image_name) {
+                $recipe->update(['image_name' => $path]);
             }
             $recipe->images()->create([
                 'path' => $path,

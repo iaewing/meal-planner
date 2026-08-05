@@ -7,7 +7,8 @@ const RecipeList = ({ recipes, filters = {} }) => {
     // Destructure the data from the pagination object
     const recipeData = recipes.data;
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_path ? `/storage/${recipe.image_path}` : null);
+    // TODO: This probably needs to change too. I see it multiple times; DRY
+    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_name ? `/storage/${recipe.image_name}` : null);
 
     // Debounce search to avoid too many requests
     const debouncedSearch = debounce((value) => {

@@ -7,7 +7,7 @@ import { router } from '@inertiajs/react';
 import { Edit, ShoppingBasket } from 'lucide-react';
 
 export default function Show({ auth, mealPlan }) {
-    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_path ? `/storage/${recipe.image_path}` : null);
+    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_name ? `/storage/${recipe.image_name}` : null);
 
     const deleteMealPlan = () => {
         if (confirm('Are you sure you want to delete this meal plan?')) {

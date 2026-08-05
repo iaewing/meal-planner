@@ -20,7 +20,7 @@ class Recipe extends Model
         'name',
         'description',
         'source_url',
-        'image_path',
+        'image_name',
         'servings',
         'rating',
     ];
@@ -42,8 +42,8 @@ class Recipe extends Model
             return $this->images()->first()->image_url;
         }
 
-        if ($this->image_path) {
-            return Storage::temporaryUrl($this->image_path, Carbon::now()->addMinutes(90));
+        if ($this->image_name) {
+            return Storage::temporaryUrl($this->image_name, Carbon::now()->addMinutes(90));
         }
 
         return null;

@@ -102,7 +102,6 @@ class RecipeController extends Controller
             ];
         }));
 
-        $recipe['image_name'] = Storage::disk('recipe-images')->url($recipe->image_name);
         return Inertia::render('Recipes/Show', [
             'recipe' => $recipe,
         ]);

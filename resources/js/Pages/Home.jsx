@@ -4,8 +4,6 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { format, parseISO } from 'date-fns';
 
 export default function Home({ auth, recentRecipes, activeMealPlan }) {
-    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_name ? `/storage/${recipe.image_name}` : null);
-
     const formatDate = (date) => {
         try {
             return format(parseISO(date), 'EEEE, MMMM d, yyyy');
@@ -106,9 +104,9 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                                                 </p>
                                                                 <p className="font-medium">{recipe.name}</p>
                                                             </div>
-                                                            {recipeImageSrc(recipe) && (
+                                                            {recipe.image_name && (
                                                                 <img
-                                                                    src={recipeImageSrc(recipe)}
+                                                                    src={recipe.image_name}
                                                                     alt={recipe.name}
                                                                     className="w-16 h-16 object-cover rounded"
                                                                 />
@@ -157,9 +155,9 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                             className="block group"
                                         >
                                             <div className="aspect-w-16 aspect-h-9 mb-2">
-                                                {recipeImageSrc(recipe) ? (
+                                                {recipe.image_name ? (
                                                     <img
-                                                        src={recipeImageSrc(recipe)}
+                                                        src={recipe.image_name}
                                                         alt={recipe.name}
                                                         className="w-full h-full object-cover rounded-lg"
                                                     />

@@ -849,18 +849,12 @@ class RecipeImportService
             }
 
             $extension = $this->imageExtensionFromUrlOrContentType($imageUrl, $contentType);
-            $path = "recipe-images/{$recipe->id}-".uniqid().".{$extension}";
+            $path = "{$recipe->id}-".uniqid().".{$extension}";
 
-            // TODO: I think as we move to image names rather than paths; we can just store the $recipe->id-uniqid() here
             Storage::disk('s3')->put($path, $response->body());
             if (! $recipe->image_name) {
                 $recipe->update(['image_name' => $path]);
             }
-            $recipe->images()->create([
-                'path' => $path,
-                'disk' => 's3',
-                'sort_order' => (int) $recipe->images()->max('sort_order') + 1,
-            ]);
         } catch (\Exception $e) {
             // Log error but don't fail the import
             Log::error("Failed to download recipe image: {$e->getMessage()}");

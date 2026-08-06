@@ -41,7 +41,17 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            'serve' => true,
+            'url' => env('APP_URL').'/public',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'recipe-images' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public/recipe-images'),
+            'url' => env('APP_URL').'/public/recipe-images',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

@@ -6,9 +6,11 @@ import { formatQuantity } from '@/utils/formatQuantity';
 
 export default function Show({auth}) {
     const {recipe} = usePage().props
+
+    // TODO: Determine if this is still necessary. Feels unnecessarily complex and legacy but also no one is using the app so how can it be legacy lol
     const recipeImages = recipe.images && recipe.images.length > 0
         ? recipe.images
-        : (recipe.image_url ? [{ id: 'legacy', image_url: recipe.image_url }] : []);
+        : (recipe.image_name ? [{ id: 'legacy', image_name: recipe.image_name }] : []);
     
     const [selectedUnits, setSelectedUnits] = useState(
         recipe.ingredients.reduce((acc, ingredient) => {
@@ -95,11 +97,11 @@ export default function Show({auth}) {
                     
                     {recipeImages.length > 0 && (
                         <div className="p-6 border-b">
-                            <div className="grid gap-4 md:grid-cols-2">
+                            <div className="flex justify-between items-center">
                                 {recipeImages.map((image, index) => (
                                     <img
                                         key={image.id ?? index}
-                                        src={image.image_url}
+                                        src={image.image_name}
                                         alt={`${recipe.name} ${index + 1}`}
                                         className="h-72 w-full object-cover rounded-lg"
                                     />

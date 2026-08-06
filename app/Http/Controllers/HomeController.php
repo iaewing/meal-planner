@@ -6,6 +6,7 @@ use Inertia\Inertia;
 use App\Models\Recipe;
 use App\Models\MealPlan;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class HomeController extends Controller
 {
@@ -24,7 +25,7 @@ class HomeController extends Controller
                     $query->whereDate('meal_plan_recipes.planned_date', today());
                 }])
                 ->first();
-
+//dd($activeMealPlan->recipes);
             return Inertia::render('Home', [
                 'recentRecipes' => $recentRecipes,
                 'activeMealPlan' => $activeMealPlan,

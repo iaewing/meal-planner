@@ -4,8 +4,6 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { format, parseISO } from 'date-fns';
 
 export default function Home({ auth, recentRecipes, activeMealPlan }) {
-    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_path ? `/storage/${recipe.image_path}` : null);
-
     const formatDate = (date) => {
         try {
             return format(parseISO(date), 'EEEE, MMMM d, yyyy');
@@ -83,20 +81,24 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                 <h2 className="text-xl font-semibold mb-4">Today's Meals</h2>
                                 {activeMealPlan ? (
                                     <>
-                                        <div className="mb-4">
-                                            <h3 className="text-lg font-medium">
-                                                {activeMealPlan.name}
-                                            </h3>
-                                            <p className="text-sm text-gray-500">
-                                                {formatDate(new Date().toISOString())}
-                                            </p>
-                                        </div>
+                                        <Link
+                                            key={activeMealPlan.id}
+                                            href={`/meal-plans/${activeMealPlan.id}`}
+                                        >
+                                            <div className="mb-4">
+                                                <h3 className="text-lg font-medium">
+                                                    {activeMealPlan.name}
+                                                </h3>
+                                                <p className="text-sm text-gray-500">
+                                                    {formatDate(new Date().toISOString())}
+                                                </p>
+                                            </div>
+                                        </Link>
                                         {activeMealPlan.recipes.length > 0 ? (
                                             <div className="space-y-4">
                                                 {activeMealPlan.recipes.map(recipe => (
                                                     <Link
-                                                        key={`${recipe.id}-${recipe.pivot.meal_type}`}
-                                                        href={`/recipes/${recipe.id}`}
+
                                                         className="block p-4 border rounded-lg hover:bg-gray-50"
                                                     >
                                                         <div className="flex items-center justify-between gap-3">
@@ -106,9 +108,9 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                                                 </p>
                                                                 <p className="font-medium">{recipe.name}</p>
                                                             </div>
-                                                            {recipeImageSrc(recipe) && (
+                                                            {recipe.image_name && (
                                                                 <img
-                                                                    src={recipeImageSrc(recipe)}
+                                                                    src={recipe.image_name}
                                                                     alt={recipe.name}
                                                                     className="w-16 h-16 object-cover rounded"
                                                                 />
@@ -157,9 +159,9 @@ export default function Home({ auth, recentRecipes, activeMealPlan }) {
                                             className="block group"
                                         >
                                             <div className="aspect-w-16 aspect-h-9 mb-2">
-                                                {recipeImageSrc(recipe) ? (
+                                                {recipe.image_name ? (
                                                     <img
-                                                        src={recipeImageSrc(recipe)}
+                                                        src={recipe.image_name}
                                                         alt={recipe.name}
                                                         className="w-full h-full object-cover rounded-lg"
                                                     />

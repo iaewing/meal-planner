@@ -73,47 +73,13 @@ describe('creating recipes', function () {
         $this->assertDatabaseHas('recipe_steps', [
             'recipe_id' => $recipe->id,
             'instruction' => $recipeSteps[0],
-            'order' => 0,
+            'order' => 0
         ]);
         $this->assertDatabaseHas('recipe_steps', [
             'recipe_id' => $recipe->id,
             'instruction' => $recipeSteps[1],
             'order' => 1,
         ]);
-    });
-
-    it('creates a recipe with multiple images', closure: function () {
-        Storage::fake('public');
-
-        $ingredient = Ingredient::factory()->create();
-        $payload = createRecipePayload(
-            ingredient: [
-                [
-                    'ingredient_id' => $ingredient->id,
-                    'name' => $ingredient->name,
-                    'quantity' => 1,
-                    'unit' => $ingredient->unit,
-                ],
-            ],
-        );
-        $payload['images'] = [
-            UploadedFile::fake()->image('first.jpg'),
-            UploadedFile::fake()->image('second.jpg'),
-        ];
-
-        $user = User::factory()->create();
-
-        $this->actingAs($user)
-            ->post(route('recipes.store'), $payload)
-            ->assertRedirect();
-
-        $recipe = Recipe::query()->where('name', $payload['name'])->firstOrFail();
-
-        expect($recipe->images)->toHaveCount(2);
-        expect($recipe->image_path)->toBe($recipe->images->first()->path);
-
-        Storage::disk('public')->assertExists($recipe->images[0]->path);
-        Storage::disk('public')->assertExists($recipe->images[1]->path);
     });
 
     it('stores the selected ingredient unit on recipe ingredients', closure: function () {

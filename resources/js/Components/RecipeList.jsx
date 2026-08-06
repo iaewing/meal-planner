@@ -7,7 +7,6 @@ const RecipeList = ({ recipes, filters = {} }) => {
     // Destructure the data from the pagination object
     const recipeData = recipes.data;
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const recipeImageSrc = (recipe) => recipe.image_url || (recipe.image_path ? `/storage/${recipe.image_path}` : null);
 
     // Debounce search to avoid too many requests
     const debouncedSearch = debounce((value) => {
@@ -102,9 +101,9 @@ const RecipeList = ({ recipes, filters = {} }) => {
                         >
                             {/* Image placeholder */}
                             <div className="bg-gray-200 h-48 flex items-center justify-center">
-                                {recipeImageSrc(recipe) ? (
+                                {recipe.image_name ? (
                                     <img
-                                        src={recipeImageSrc(recipe)}
+                                        src={recipe.image_name}
                                         alt={recipe.name}
                                         className="w-full h-full object-cover"
                                     />

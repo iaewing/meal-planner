@@ -4,21 +4,25 @@ namespace App\Models;
 
 use App\Services\NutritionCalculationService;
 use App\Services\RecipeScalingService;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+
 
 class Recipe extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'user_id',
         'name',
         'description',
         'source_url',
-        'image_path',
+        'image_name',
         'servings',
         'rating',
     ];
@@ -30,6 +34,12 @@ class Recipe extends Model
 
     protected $appends = ['image_url'];
 
+    protected function imageName(): Attribute {
+        return Attribute::make(
+            get: fn (?string $value) => Storage::disk('recipe-images')->url($value),
+        );
+    }
+
     public function getImageUrlAttribute(): ?string
     {
         if ($this->relationLoaded('images') && $this->images->isNotEmpty()) {
@@ -40,8 +50,8 @@ class Recipe extends Model
             return $this->images()->first()->image_url;
         }
 
-        if ($this->image_path) {
-            return Storage::temporaryUrl($this->image_path, Carbon::now()->addMinutes(90));
+        if ($this->image_name) {
+            return Storage::temporaryUrl($this->image_name, Carbon::now()->addMinutes(90));
         }
 
         return null;

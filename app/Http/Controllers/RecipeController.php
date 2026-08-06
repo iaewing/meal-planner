@@ -12,6 +12,7 @@ use App\Services\RecipeImportService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class RecipeController extends Controller
@@ -268,6 +269,10 @@ class RecipeController extends Controller
                 auth()->id()
             );
 
+            if (!$recipe) {
+                return back()->withErrors(['image' => 'Could not extract recipe text from this image.']);
+            }
+
             return redirect()->route('recipes.edit', $recipe)
                 ->with('success', 'Recipe imported successfully. Please review and adjust as needed.');
         } catch (\Exception $e) {
@@ -297,8 +302,8 @@ class RecipeController extends Controller
                     'sort_order' => $nextSortOrder + $index,
                 ]);
 
-                if (! $recipe->image_path) {
-                    $recipe->update(['image_path' => $path]);
+                if (! $recipe->image_name) {
+                    $recipe->update(['image_name' => $path]);
                 }
             });
     }

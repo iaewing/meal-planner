@@ -452,11 +452,12 @@ class RecipeImportService
         $sections = $this->parseOcrTextFromSides($sideTexts);
         $firstImagePath = $imagePaths->first();
 
+        // TODO: What is happening with the image parsing here?
         $recipe = Recipe::create([
             'user_id' => $userId,
             'name' => $sections['title'],
             'description' => $sections['description'] ?? null,
-            'image_path' => $firstImagePath ? str_replace(storage_path('app/public/'), '', $firstImagePath) : null,
+            'image_name' => $firstImagePath ? str_replace(storage_path('app/public/'), '', $firstImagePath) : null,
         ]);
         $imagePaths->each(function (string $imagePath, int $index) use ($recipe) {
             $recipe->images()->create([
@@ -848,17 +849,12 @@ class RecipeImportService
             }
 
             $extension = $this->imageExtensionFromUrlOrContentType($imageUrl, $contentType);
-            $path = "recipe-images/{$recipe->id}-".uniqid().".{$extension}";
+            $path = "{$recipe->id}-".uniqid().".{$extension}";
 
             Storage::disk('s3')->put($path, $response->body());
-            if (! $recipe->image_path) {
-                $recipe->update(['image_path' => $path]);
+            if (! $recipe->image_name) {
+                $recipe->update(['image_name' => $path]);
             }
-            $recipe->images()->create([
-                'path' => $path,
-                'disk' => 's3',
-                'sort_order' => (int) $recipe->images()->max('sort_order') + 1,
-            ]);
         } catch (\Exception $e) {
             // Log error but don't fail the import
             Log::error("Failed to download recipe image: {$e->getMessage()}");

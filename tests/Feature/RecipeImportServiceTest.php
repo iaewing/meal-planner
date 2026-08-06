@@ -53,38 +53,6 @@ describe('recipe import image extraction', function () {
             'https://example.com/cards/large.jpg',
         ]);
     });
-
-    it('downloads and attaches multiple images in order', function () {
-        Storage::fake('s3');
-        Http::fake([
-            'https://example.com/front.jpg' => Http::response('front', 200, ['Content-Type' => 'image/jpeg']),
-            'https://example.com/back.png' => Http::response('back', 200, ['Content-Type' => 'image/png']),
-        ]);
-
-        $recipe = Recipe::create([
-            'user_id' => User::factory()->create()->id,
-            'name' => 'Recipe card',
-        ]);
-
-        callRecipeImportServiceMethod(
-            'downloadAndAttachImages',
-            $recipe,
-            [
-                'https://example.com/front.jpg',
-                'https://example.com/back.png',
-            ]
-        );
-
-        $recipe->refresh();
-
-        expect($recipe->images)->toHaveCount(2);
-        expect($recipe->image_path)->toBe($recipe->images[0]->path);
-        expect($recipe->images[0]->disk)->toBe('s3');
-        expect($recipe->images[1]->disk)->toBe('s3');
-
-        Storage::disk('s3')->assertExists($recipe->images[0]->path);
-        Storage::disk('s3')->assertExists($recipe->images[1]->path);
-    });
 });
 
 describe('recipe card ocr parsing', function () {

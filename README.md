@@ -18,3 +18,12 @@
 - [x] Add toast for when a recipe upload/import completes
 - [x] Intelligently display ingredient quantities. Current `8.00 Tablespoons Unsalted Butter` can and should be displayed to the user as `8 Tablespoons Unsalted Butter`
 - [ ] Recipe sharing between accounts
+- [x] Normalize ingredients
+
+### Later
+
+- [ ] Allow users to create a recipe from images of a double-sided recipe card
+- [ ] Add recipe rating system
+- [ ] Investigate Instagram import
+- [ ] Add toast for when a recipe upload/import completes
+- [ ] Intelligently display ingredient quantities. Current `8.00 Tablespoons Unsalted Butter` can and should be displayed to the user as `8 Tablespoons Unsalted Butter`

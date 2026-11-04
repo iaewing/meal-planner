@@ -1,11 +1,15 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Plus, Shuffle } from 'lucide-react';
+
+const parseLocalDate = (date) => parseISO(String(date).split('T')[0]);
 
 export default function Index({ auth, mealPlans, previousMealPlans }) {
     const [previousPlansVisible, setPreviousPlansVisible] = React.useState(false);
+    const currentMealPlans = mealPlans?.data ?? mealPlans ?? [];
+    const pastMealPlans = previousMealPlans?.data ?? previousMealPlans ?? [];
 
     function handlePreviousMealsClick() {
         setPreviousPlansVisible(!previousPlansVisible);
@@ -39,28 +43,49 @@ export default function Index({ auth, mealPlans, previousMealPlans }) {
 
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-4 sm:p-6">
-                            {mealPlans?.length > 0 ? (
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                    {mealPlans.map((mealPlan) => (
-                                        <div
-                                            key={mealPlan.id}
-                                            className="rounded-lg border p-4 transition-shadow hover:shadow-lg"
-                                        >
-                                            <Link href={route('meal-plans.show', mealPlan.id)}>
-                                                <h3 className="mb-2 text-lg font-semibold sm:text-xl">{mealPlan.name}</h3>
-                                                <div className="text-gray-600">
-                                                    <p>
-                                                        {format(new Date(mealPlan.start_date), 'MMM d, yyyy')} -{' '}
-                                                        {format(new Date(mealPlan.end_date), 'MMM d, yyyy')}
-                                                    </p>
-                                                    <p className="mt-2">
-                                                        {mealPlan.recipes.length} {mealPlan.recipes.length === 1 ? 'recipe' : 'recipes'}
-                                                    </p>
-                                                </div>
-                                            </Link>
+                            {currentMealPlans.length > 0 ? (
+                                <>
+                                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        {currentMealPlans.map((mealPlan) => (
+                                            <div
+                                                key={mealPlan.id}
+                                                className="rounded-lg border p-4 transition-shadow hover:shadow-lg"
+                                            >
+                                                <Link href={route('meal-plans.show', mealPlan.id)}>
+                                                    <h3 className="mb-2 text-lg font-semibold sm:text-xl">{mealPlan.name}</h3>
+                                                    <div className="text-gray-600">
+                                                        <p>
+                                                            {format(parseLocalDate(mealPlan.start_date), 'MMM d, yyyy')} -{' '}
+                                                            {format(parseLocalDate(mealPlan.end_date), 'MMM d, yyyy')}
+                                                        </p>
+                                                        <p className="mt-2">
+                                                            {mealPlan.recipes.length} {mealPlan.recipes.length === 1 ? 'recipe' : 'recipes'}
+                                                        </p>
+                                                    </div>
+                                                </Link>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {mealPlans?.last_page > 1 && (
+                                        <div className="flex justify-center mt-8 space-x-2">
+                                            {mealPlans.links.map((link, index) => (
+                                                <Link
+                                                    key={index}
+                                                    href={link.url || '#'}
+                                                    preserveState
+                                                    className={`px-4 py-2 border rounded ${
+                                                        link.active
+                                                            ? 'bg-blue-500 text-white'
+                                                            : 'bg-white text-gray-700 hover:bg-gray-100'
+                                                    }`}
+                                                    disabled={!link.url}
+                                                >
+                                                    {link.label.replace('&laquo;', '«').replace('&raquo;', '»')}
+                                                </Link>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    )}
+                                </>
                             ) : (
                                 <div className="text-center py-12">
                                     <p className="text-gray-500">No meal plans yet. Create your first one!</p>
@@ -72,28 +97,49 @@ export default function Index({ auth, mealPlans, previousMealPlans }) {
                             <div onClick={handlePreviousMealsClick} className="text-lg font-semibold sm:text-xl">
                                 Previous Meal Plans <span className="font-bold text-2xl">{previousPlansVisible ? '-' : '+'}</span>
                             </div>
-                            {(previousMealPlans?.length > 0 && previousPlansVisible) && (
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                    {previousMealPlans.map((mealPlan) => (
-                                        <div
-                                            key={mealPlan.id}
-                                            className="rounded-lg border p-4 transition-shadow hover:shadow-lg"
-                                        >
-                                            <Link href={route('meal-plans.show', mealPlan.id)}>
-                                                <h3 className="mb-2 text-lg font-semibold sm:text-xl">{mealPlan.name}</h3>
-                                                <div className="text-gray-600">
-                                                    <p>
-                                                        {format(new Date(mealPlan.start_date), 'MMM d, yyyy')} -{' '}
-                                                        {format(new Date(mealPlan.end_date), 'MMM d, yyyy')}
-                                                    </p>
-                                                    <p className="mt-2">
-                                                        {mealPlan.recipes.length} {mealPlan.recipes.length === 1 ? 'recipe' : 'recipes'}
-                                                    </p>
-                                                </div>
-                                            </Link>
+                            {(pastMealPlans.length > 0 && previousPlansVisible) && (
+                                <>
+                                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        {pastMealPlans.map((mealPlan) => (
+                                            <div
+                                                key={mealPlan.id}
+                                                className="rounded-lg border p-4 transition-shadow hover:shadow-lg"
+                                            >
+                                                <Link href={route('meal-plans.show', mealPlan.id)}>
+                                                    <h3 className="mb-2 text-lg font-semibold sm:text-xl">{mealPlan.name}</h3>
+                                                    <div className="text-gray-600">
+                                                        <p>
+                                                            {format(parseLocalDate(mealPlan.start_date), 'MMM d, yyyy')} -{' '}
+                                                            {format(parseLocalDate(mealPlan.end_date), 'MMM d, yyyy')}
+                                                        </p>
+                                                        <p className="mt-2">
+                                                            {mealPlan.recipes.length} {mealPlan.recipes.length === 1 ? 'recipe' : 'recipes'}
+                                                        </p>
+                                                    </div>
+                                                </Link>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {previousMealPlans?.last_page > 1 && (
+                                        <div className="flex justify-center mt-8 space-x-2">
+                                            {previousMealPlans.links.map((link, index) => (
+                                                <Link
+                                                    key={index}
+                                                    href={link.url || '#'}
+                                                    preserveState
+                                                    className={`px-4 py-2 border rounded ${
+                                                        link.active
+                                                            ? 'bg-blue-500 text-white'
+                                                            : 'bg-white text-gray-700 hover:bg-gray-100'
+                                                    }`}
+                                                    disabled={!link.url}
+                                                >
+                                                    {link.label.replace('&laquo;', '«').replace('&raquo;', '»')}
+                                                </Link>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>

@@ -15,11 +15,11 @@ class RecipeIngredientService
 
     public function sync(Recipe $recipe, array $ingredients): void
     {
-        $recipe->ingredients()->sync(collect($ingredients)->mapWithKeys(function (array $ingredient) {
-            return [
-                $ingredient['ingredient_id'] => $this->pivotData($ingredient['ingredient_id'], $ingredient),
-            ];
-        }));
+        $recipe->ingredients()->detach();
+
+        foreach ($ingredients as $ingredient) {
+            $this->attach($recipe, $ingredient['ingredient_id'], $ingredient);
+        }
     }
 
     private function pivotData(int $ingredientId, array $data): array

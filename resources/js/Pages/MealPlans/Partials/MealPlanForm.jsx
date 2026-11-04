@@ -10,13 +10,15 @@ import { format } from 'date-fns';
 import { route } from 'ziggy-js';
 
 export default function MealPlanForm({ recipes, mealPlan = null, className = '' }) {
+    const formatDateInput = (date) => (date ? String(date).split('T')[0] : format(new Date(), 'yyyy-MM-dd'));
+
     const { data, setData, post, put, processing, errors } = useForm({
         name: mealPlan?.name ?? '',
-        start_date: mealPlan?.start_date ?? format(new Date(), 'yyyy-MM-dd'),
-        end_date: mealPlan?.end_date ?? format(new Date(), 'yyyy-MM-dd'),
+        start_date: formatDateInput(mealPlan?.start_date),
+        end_date: formatDateInput(mealPlan?.end_date),
         meals: mealPlan?.recipes?.map(recipe => ({
             recipe_id: recipe.id,
-            planned_date: recipe.pivot.planned_date,
+            planned_date: recipe.pivot.planned_date ? String(recipe.pivot.planned_date).split('T')[0] : '',
             meal_type: recipe.pivot.meal_type,
         })) ?? [],
     });

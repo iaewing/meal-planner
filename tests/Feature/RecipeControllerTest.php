@@ -200,6 +200,41 @@ describe('editing recipes', function () {
             'ingredient_unit_id' => $tablespoon->id,
         ]);
     });
+
+    it('preserves multiple entries of the same ingredient when updating a recipe', closure: function () {
+        $user = User::factory()->create();
+        $ingredient = Ingredient::factory()->create(['name' => 'butter']);
+        $recipe = Recipe::create([
+            'user_id' => $user->id,
+            'name' => 'Pastry',
+            'description' => 'Flaky',
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('recipes.update', $recipe), [
+                '_method' => 'PUT',
+                'name' => $recipe->name,
+                'description' => $recipe->description,
+                'source_url' => null,
+                'ingredients' => [
+                    [
+                        'ingredient_id' => $ingredient->id,
+                        'quantity' => 1,
+                        'unit' => 'cup',
+                        'notes' => 'for dough',
+                    ],
+                    [
+                        'ingredient_id' => $ingredient->id,
+                        'quantity' => 2,
+                        'unit' => 'tbsp',
+                        'notes' => 'for brushing',
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('recipes.show', $recipe));
+
+        expect($recipe->fresh()->ingredients)->toHaveCount(2);
+    });
 });
 
 describe('importing recipes', function () {

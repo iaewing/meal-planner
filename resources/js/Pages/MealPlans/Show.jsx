@@ -1,10 +1,12 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import DangerButton from '@/Components/DangerButton';
 import { router } from '@inertiajs/react';
 import { Edit, ShoppingBasket } from 'lucide-react';
+
+const parseLocalDate = (date) => parseISO(String(date).split('T')[0]);
 
 export default function Show({ auth, mealPlan }) {
     const deleteMealPlan = () => {
@@ -41,8 +43,8 @@ export default function Show({ auth, mealPlan }) {
                                 <div>
                                     <h2 className="text-2xl font-semibold">{mealPlan.name}</h2>
                                     <p className="text-gray-600">
-                                        {format(new Date(mealPlan.start_date), 'MMM d, yyyy')} -{' '}
-                                        {format(new Date(mealPlan.end_date), 'MMM d, yyyy')}
+                                        {format(parseLocalDate(mealPlan.start_date), 'MMM d, yyyy')} -{' '}
+                                        {format(parseLocalDate(mealPlan.end_date), 'MMM d, yyyy')}
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3 sm:flex">
@@ -70,7 +72,7 @@ export default function Show({ auth, mealPlan }) {
                                 {sortedDates.map(date => (
                                     <div key={date} className="rounded-lg border p-4 sm:p-6">
                                         <h3 className="mb-4 text-lg font-semibold sm:text-xl">
-                                            {format(new Date(date), 'EEEE, MMMM d, yyyy')}
+                                            {format(parseLocalDate(date), 'EEEE, MMMM d, yyyy')}
                                         </h3>
                                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                             {mealsByDate[date]

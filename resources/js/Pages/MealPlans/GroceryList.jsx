@@ -38,24 +38,27 @@ export default function GroceryList({ auth, mealPlan, ingredients }) {
                             <div className="space-y-4">
                                 {ingredients.length > 0 ? (
                                     <div className="divide-y">
-                                        {ingredients.map(ingredient => (
-                                            <div
-                                                key={ingredient.id}
-                                                className={`flex items-center gap-4 py-4 ${
-                                                    checkedItems[ingredient.id] ? 'opacity-50' : ''
-                                                }`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={checkedItems[ingredient.id] || false}
-                                                    onChange={() => toggleItem(ingredient.id)}
-                                                    className="h-6 w-6 rounded text-blue-600"
-                                                />
-                                                <span className={`text-base ${checkedItems[ingredient.id] ? 'line-through' : ''}`}>
-                                                    {formatQuantity(ingredient.total_quantity)} {ingredient.unit} {ingredient.name}
-                                                </span>
-                                            </div>
-                                        ))}
+                                        {ingredients.map((ingredient, index) => {
+                                            const itemKey = `${ingredient.id}-${ingredient.unit ?? index}`;
+                                            return (
+                                                <div
+                                                    key={itemKey}
+                                                    className={`flex items-center gap-4 py-4 ${
+                                                        checkedItems[itemKey] ? 'opacity-50' : ''
+                                                    }`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checkedItems[itemKey] || false}
+                                                        onChange={() => toggleItem(itemKey)}
+                                                        className="h-6 w-6 rounded text-blue-600"
+                                                    />
+                                                    <span className={`text-base ${checkedItems[itemKey] ? 'line-through' : ''}`}>
+                                                        {formatQuantity(ingredient.total_quantity)} {ingredient.unit} {ingredient.name}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <p className="text-gray-500 text-center py-8">

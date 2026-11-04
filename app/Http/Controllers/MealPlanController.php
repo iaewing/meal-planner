@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class MealPlanController extends Controller
@@ -18,14 +19,25 @@ class MealPlanController extends Controller
 
     public function index()
     {
+        $startOfWeek = Carbon::now()->startOfWeek()->toDateString();
+
         $mealPlans = MealPlan::with(['recipes'])
             ->where('user_id', Auth::id())
+            ->whereDate('start_date', '>=', $startOfWeek)
             ->latest()
-            ->paginate(10);
+            ->paginate(10, ['*'], 'page')
+            ->withQueryString();
+
+        $previousMealPlans = MealPlan::with(['recipes'])
+            ->where('user_id', Auth::id())
+            ->whereDate('start_date', '<', $startOfWeek)
+            ->latest()
+            ->paginate(10, ['*'], 'previous_page')
+            ->withQueryString();
 
         return Inertia::render('MealPlans/Index', [
-            'mealPlans' => $mealPlans->filter(fn($mealPlan) => $mealPlan->start_date->gte(Carbon::now()->startOfWeek()))->values(),
-            'previousMealPlans' => $mealPlans->filter(fn($mealPlan) => $mealPlan->start_date->lt(Carbon::now()->startOfWeek()))->values()
+            'mealPlans' => $mealPlans,
+            'previousMealPlans' => $previousMealPlans
         ]);
     }
 
@@ -47,8 +59,11 @@ class MealPlanController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'meals' => 'required|array|min:1',
-            'meals.*.recipe_id' => 'required|exists:recipes,id',
-            'meals.*.planned_date' => 'required|date',
+            'meals.*.recipe_id' => [
+                'required',
+                Rule::exists('recipes', 'id')->where('user_id', Auth::id()),
+            ],
+            'meals.*.planned_date' => 'required|date|after_or_equal:start_date|before_or_equal:end_date',
             'meals.*.meal_type' => 'required|in:breakfast,lunch,dinner,snack',
         ]);
 
@@ -108,8 +123,11 @@ class MealPlanController extends Controller
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
             'meals' => 'required|array|min:1',
-            'meals.*.recipe_id' => 'required|exists:recipes,id',
-            'meals.*.planned_date' => 'required|date',
+            'meals.*.recipe_id' => [
+                'required',
+                Rule::exists('recipes', 'id')->where('user_id', Auth::id()),
+            ],
+            'meals.*.planned_date' => 'required|date|after_or_equal:start_date|before_or_equal:end_date',
             'meals.*.meal_type' => 'required|in:breakfast,lunch,dinner,snack',
         ]);
 
@@ -119,12 +137,14 @@ class MealPlanController extends Controller
             'end_date' => $validated['end_date'],
         ]);
 
-        $mealPlan->recipes()->sync(collect($validated['meals'])->mapWithKeys(function ($meal) {
-            return [$meal['recipe_id'] => [
+        $mealPlan->recipes()->detach();
+
+        foreach ($validated['meals'] as $meal) {
+            $mealPlan->recipes()->attach($meal['recipe_id'], [
                 'planned_date' => $meal['planned_date'],
                 'meal_type' => $meal['meal_type'],
-            ]];
-        }));
+            ]);
+        }
 
         return redirect()->route('meal-plans.show', $mealPlan)
             ->with('success', 'Meal plan updated successfully.');

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\OcrService;
 use App\Models\Ingredient;
 use App\Models\Recipe;
 use App\Exceptions\InstagramImportException;
@@ -15,16 +16,18 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\DomCrawler\Crawler;
-use thiagoalessio\TesseractOCR\TesseractOCR;
 
 class RecipeImportService
 {
     protected $client;
+    protected OcrService $ocrService;
 
     public function __construct(
         protected IngredientService $ingredientService,
         protected InstagramImportService $instagramImportService,
+        ?OcrService $ocrService = null,
     ) {
+        $this->ocrService = $ocrService ?? app(OcrService::class);
         $this->client = new Client([
             'timeout' => 30,
             'verify' => false,
@@ -439,15 +442,21 @@ class RecipeImportService
         }
     }
 
-    public function importFromImage(string|array $imagePaths, int $userId): Recipe
+    public function importFromImage(string|array $imagePaths, int $userId): ?Recipe
     {
         $imagePaths = collect(is_array($imagePaths) ? $imagePaths : [$imagePaths])
             ->filter()
             ->values();
 
         $sideTexts = $imagePaths
-            ->map(fn (string $imagePath) => (new TesseractOCR($imagePath))->run())
+            ->map(fn (string $imagePath) => $this->ocrService->run($imagePath))
+            ->filter(fn (?string $text) => $text !== null && trim($text) !== '')
+            ->values()
             ->all();
+
+        if (empty($sideTexts)) {
+            return null;
+        }
 
         $sections = $this->parseOcrTextFromSides($sideTexts);
         $firstImagePath = $imagePaths->first();
@@ -518,7 +527,7 @@ class RecipeImportService
         return $merged;
     }
 
-    protected function parseOcrText(string $text): array
+    public function parseOcrText(string $text): array
     {
         $lines = explode("\n", $text);
         $sections = [
